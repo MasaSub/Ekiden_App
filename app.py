@@ -30,7 +30,7 @@ st.markdown("""
     <style>
     /* 全体の余白を詰めて画面を広く使う */
     .block-container {
-        padding-top: 1rem;
+        padding-top: 0.5rem;
         padding-bottom: 5rem; /* 下部は誤操作防止で少し空ける */
         padding-left: 0.5rem;
         padding-right: 0.5rem;
@@ -50,15 +50,13 @@ st.markdown("""
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B;
         color: white;
-        height: 3.5em;           /* 4.5emから縮小 */
-        font-size: 22px;
+        height: 4.0em;
+        font-size: 36px;
     }
     
     /* タイトルの余白を詰める */
     h3 {
-        padding-top: 0px;
-        margin-top: 0px;
-        margin-bottom: 0.5rem;
+        display: none; /* Python側のタイトルは非表示にします */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -186,40 +184,50 @@ else:
         elapsed_str = f"{mins:02}:{secs:02}"
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【修正】タイトルと更新ボタン
-        # スマホで縦積みになっても邪魔にならないよう、ボタンを「アイコンのみ」にします
+        # 【決定版】ヘッダー統合型HTMLパネル
+        # タイトルと更新ボタンをこの中に同居させることで、スマホでも横並びを強制します
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        
-        # カラム比率を調整して横並びを狙いますが、スマホでは縦になる前提のデザインにします
-        c_title, c_btn = st.columns([7, 2], gap="small") 
-        
-        with c_title:
-            st.markdown(f"### 🏃‍♂️ {next_section_num}区")
-            
-        with c_btn:
-            # ボタンのラベルを「🔄」だけにして省スペース化
-            # 縦積みになっても「更新」という文字がない分、行がスッキリします
-            if st.button("🔄", help="画面を更新", use_container_width=True):
-                st.rerun()
-
-        # 2. 横並びパネル (HTML) - インデント対策済み
-        # （以前の更新ボタンがあった場所からは削除済みです）
         st.markdown(f"""
-<div style="display: flex; justify-content: space-between; align-items: center; background-color: #262730; padding: 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;">
-<div style="text-align: center; flex: 1;">
-<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">前の通過</div>
-<div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_point}</div>
-</div>
-<div style="text-align: center; flex: 1; border-left: 1px solid #555; border-right: 1px solid #555;">
-<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">通過時刻</div>
-<div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_row['時刻'][:-3]}<span style="font-size: 14px;">{last_row['時刻'][-3:]}</span></div>
-</div>
-<div style="text-align: center; flex: 1;">
-<div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">現在の経過</div>
-<div style="font-size: 26px; font-weight: bold; color: #FF4B4B; line-height: 1.0;">{elapsed_str}</div>
-</div>
-</div>
-""", unsafe_allow_html=True)
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 5px;">
+            <div style="font-size: 22px; font-weight: bold;">
+                🏃‍♂️ {next_section_num}区 走行中
+            </div>
+            <a href="javascript:window.location.reload();" style="
+                text-decoration: none; 
+                background-color: #333; 
+                color: white; 
+                padding: 5px 12px; 
+                border-radius: 8px; 
+                font-size: 14px;
+                border: 1px solid #555;">
+                🔄 更新
+            </a>
+        </div>
+
+        <div style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            background-color: #262730;
+            padding: 12px; 
+            border-radius: 10px; 
+            margin-bottom: 8px;
+            border: 1px solid #444;
+        ">
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">前の通過</div>
+                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_point}</div>
+            </div>
+            <div style="text-align: center; flex: 1; border-left: 1px solid #555; border-right: 1px solid #555;">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">通過時刻</div>
+                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_row['時刻'][:-3]}<span style="font-size: 14px;">{last_row['時刻'][-3:]}</span></div>
+            </div>
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">現在の経過</div>
+                <div style="font-size: 26px; font-weight: bold; color: #FF4B4B; line-height: 1.0;">{elapsed_str}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         st.divider()
