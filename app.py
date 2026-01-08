@@ -115,15 +115,19 @@ def load_data(conn):
     except Exception as e:
         return pd.DataFrame()
 
+# 【修正】時刻保存用 (HH:MM:SS.f)
 def get_time_str(dt):
+    # マイクロ秒(6桁)を含む文字列を取得し、先頭10文字(コンマ1桁目まで)で切る
+    # 例: 12:34:56.123456 -> 12:34:56.1
     return dt.strftime("%H:%M:%S.%f")[:10]
 
+# 【修正】時刻読み込み用 (0.1秒対応)
 def parse_time_str(time_str):
     now = datetime.now(JST)
     try:
-        # 0.1秒単位(.X)の場合、後ろに0を5つ足して(.X00000) datetimeに読み込ませる
         if "." in time_str:
-            # 文字列操作でマイクロ秒6桁に合わせる簡易的な処理
+            # 0.1秒単位(.X)がある場合、後ろに0を5つ足して(.X00000) datetimeとして読み込む
+            # 文字列連結で簡易的にパース可能な形式にする
             t = datetime.strptime(time_str + "00000", "%H:%M:%S.%f").time()
         else:
             t = datetime.strptime(time_str, "%H:%M:%S").time()
