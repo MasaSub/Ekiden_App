@@ -237,7 +237,7 @@ def show_js_timer(km_sec, sec_sec, split_sec):
     </body>
     </html>
     """
-    components.html(html_code, height=20)
+    components.html(html_code, height=70)
 
 # ==========================================
 # メイン処理
