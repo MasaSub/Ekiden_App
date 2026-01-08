@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.3.5 date = 2026/01/09
+# version = 1.4.0 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -14,7 +14,7 @@ import streamlit.components.v1 as components # JavaScript埋め込み用
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.3.5"
+VERSION = "ver 1.4.0"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
