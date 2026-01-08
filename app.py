@@ -322,7 +322,7 @@ if df.empty or len(df) == 0:
         auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
     
     if auto_reload_start:
-        st_autorefresh(interval=10000, key="refresh_start")
+        st_autorefresh(interval=2000, key="refresh_start")
 
 
 # --- B. レース進行中 or 終了後 ---
