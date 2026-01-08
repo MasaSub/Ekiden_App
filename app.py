@@ -183,37 +183,47 @@ else:
         st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【修正】強制横並びパネル (HTML)
-        # 3つの情報を横一列に並べて、縦のスペースを大幅に節約します
+        # 【再修正】横並びパネル (文字サイズ特大 & ボタン小型化)
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         st.markdown(f"""
         <div style="
             display: flex; 
             justify-content: space-between; 
             align-items: center;
-            background-color: #262730; /* 背景色（ダークモードに馴染む色） */
-            padding: 10px; 
+            background-color: #262730;
+            padding: 12px; 
             border-radius: 10px; 
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             border: 1px solid #444;
         ">
             <div style="text-align: center; flex: 1;">
-                <div style="font-size: 10px; color: #aaa;">前の通過</div>
-                <div style="font-size: 16px; font-weight: bold; color: white;">{last_point}</div>
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">前の通過</div>
+                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">
+                    {last_point}
+                </div>
             </div>
+            
             <div style="text-align: center; flex: 1; border-left: 1px solid #555; border-right: 1px solid #555;">
-                <div style="font-size: 10px; color: #aaa;">通過時刻</div>
-                <div style="font-size: 16px; font-weight: bold; color: white;">{last_row['時刻']}</div>
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">通過時刻</div>
+                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">
+                    {last_row['時刻'][:-3]}<span style="font-size: 14px;">{last_row['時刻'][-3:]}</span>
+                </div>
             </div>
+            
             <div style="text-align: center; flex: 1;">
-                <div style="font-size: 10px; color: #aaa;">現在の経過</div>
-                <div style="font-size: 18px; font-weight: bold; color: #FF4B4B;">{elapsed_str}</div>
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">現在の経過</div>
+                <div style="font-size: 26px; font-weight: bold; color: #FF4B4B; line-height: 1.0;">
+                    {elapsed_str}
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        # 更新ボタン（場所を取らないように小さく配置）
-        if st.button("🔄 画面を更新", use_container_width=True):
+        # 更新ボタン（幅指定を外して小さくし、中央寄せにするためにcolumnsを使用）
+        # ※ボタンをただ置くと左寄りで小さくなりすぎるため、中央に配置します
+        c_refresh, _, _ = st.columns([1, 2, 2]) # 左端のカラムだけ使うなど調整可能ですが、シンプルに置きます
+        
+        if st.button("🔄 更新"):
             st.rerun()
         # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
