@@ -1,21 +1,22 @@
 # ==========================================
-# version = 1.3.99_fixed date = 2026/01/09
+# version = 1.3.99 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
 import pandas as pd
 import math
-import gspread # 【追加】直接書き込み用
-from google.oauth2.service_account import Credentials # 【追加】認証用
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from streamlit_gsheets import GSheetsConnection
+from streamlit_autorefresh import st_autorefresh # 【復活】これが抜けていました！
 import streamlit.components.v1 as components
 
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.3.99_fixed"
+VERSION = "ver 1.3.99"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_NAME = "log"
@@ -108,10 +109,9 @@ def load_data(conn):
         st.error(f"通信エラー（再接続中...）: {e}")
         return pd.DataFrame()
 
-# 【追加】安全な追記書き込み用のクライアント取得関数
+# 安全な追記書き込み用のクライアント取得関数
 def get_gspread_client():
     scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-    # secretsから認証情報を取得して直接gspreadクライアントを作る
     credentials = dict(st.secrets["connections"]["gsheets"])
     creds = Credentials.from_service_account_info(credentials, scopes=scope)
     client = gspread.authorize(creds)
@@ -242,7 +242,6 @@ def show_js_timer(km_sec, sec_sec, split_sec):
 # ==========================================
 # メイン処理
 # ==========================================
-# 読み込み用コネクション
 conn = st.connection("gsheets", type=GSheetsConnection)
 df = load_data(conn)
 
@@ -363,7 +362,7 @@ else:
             # --- ボタン処理（Fragment内：ラップ・中継） ---
             now_for_record = datetime.now(JST)
 
-            # 【修正】gspreadを直接使って追記する関数
+            # gspreadを直接使って追記する関数
             def append_record(loc_text):
                 lap_sec = (now_for_record - last_time_obj).total_seconds()
                 total_sec = (now_for_record - first_time_obj).total_seconds()
@@ -399,7 +398,7 @@ else:
         # --- Finishボタン（Fragmentの外に配置） ---
         if st.button("🏆 Finish", use_container_width=True):
             now_for_record = datetime.now(JST)
-            # 現在のデータ(df)を使って計算（Fragment外なのでload_data済みのdfを使用）
+            # 現在のデータ(df)を使って計算
             last_row = df.iloc[-1]
             last_time_obj = parse_time_str(last_row['Time'])
             first_time_obj = parse_time_str(df.iloc[0]['Time'])
