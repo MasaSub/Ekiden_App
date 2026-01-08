@@ -34,7 +34,7 @@ st.markdown("""
     }
     /* 全体の余白を詰めて画面を広く使う */
     .block-container {
-        padding-top: 1.5rem;
+        padding-top: 2.0rem;
         padding-bottom: 5rem; /* 下部は誤操作防止で少し空ける */
         padding-left: 0.5rem;
         padding-right: 0.5rem;
@@ -106,7 +106,7 @@ st.markdown("""
 # st.title の代わりに HTML を使ってデザインを自由に指定します
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 st.markdown("""
-    <h2 style='text-align: center; font-size: 24px; margin-bottom: 20px;'>
+    <h2 style='text-align: center; font-size: 24px; margin-bottom: 5px;'>
         🎽 EKIDEN-計測
     </h2>
 """, unsafe_allow_html=True)
