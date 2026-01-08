@@ -276,7 +276,7 @@ else:
         with st.expander("管理メニュー"):
             st.write("設定")
             # デフォルトはOFFにしておき、必要な時だけONにする仕様
-            auto_reload = st.toggle("🔄 自動更新モード (10秒毎)", value=False)
+            auto_reload = st.toggle("🔄 自動更新", value=False)
             
             st.divider()
             
