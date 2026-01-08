@@ -9,12 +9,12 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from streamlit_gsheets import GSheetsConnection
 from streamlit_autorefresh import st_autorefresh
-import streamlit.components.v1 as components # 【追加】JavaScript埋め込み用
+import streamlit.components.v1 as components # JavaScript埋め込み用
 
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.3.5" ###更新毎に書き換え
+VERSION = "ver 1.3.5"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
@@ -110,7 +110,7 @@ st.markdown(f"""
 # 関数定義
 # ==========================================
 def load_data(conn):
-    #try:
+    # デバッグ用にtry-exceptを外している場合はこのまま運用
     df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=CACHE_TTL_SEC)
     if not df.empty:
         cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split']
@@ -118,22 +118,19 @@ def load_data(conn):
             if col in df.columns:
                 df[col] = df[col].astype(str)
     return df
-    # except Exception as e:
-    #     return pd.DataFrame()
 
-# 【修正】時刻保存用 (HH:MM:SS.f)
+# 時刻保存用 (HH:MM:SS.f)
 def get_time_str(dt):
     # マイクロ秒(6桁)を含む文字列を取得し、先頭10文字(コンマ1桁目まで)で切る
     # 例: 12:34:56.123456 -> 12:34:56.1
     return dt.strftime("%H:%M:%S.%f")[:10]
 
-# 【修正】時刻読み込み用 (0.1秒対応)
+# 時刻読み込み用 (0.1秒対応)
 def parse_time_str(time_str):
     now = datetime.now(JST)
     try:
         if "." in time_str:
             # 0.1秒単位(.X)がある場合、後ろに0を5つ足して(.X00000) datetimeとして読み込む
-            # 文字列連結で簡易的にパース可能な形式にする
             t = datetime.strptime(time_str + "00000", "%H:%M:%S.%f").time()
         else:
             t = datetime.strptime(time_str, "%H:%M:%S").time()
@@ -148,14 +145,14 @@ def style_decimal(time_str):
         return f'{main}<span style="font-size: 0.6em; opacity: 0.7;">.{dec}</span>'
     return time_str    
 
-# スプリット用 (h:mm:ss) ※0.1秒なし
+# スプリット用 (h:mm:ss) ※0.1秒なし、切り上げ
 def fmt_time(sec):
     sec = math.ceil(sec)
     m, s = divmod(int(sec), 60)
     h, m = divmod(m, 60)
     return f"{h:01}:{m:02}:{s:02}"
 
-# ラップ用 (mm:ss.f)
+# ラップ用 (mm:ss.f) ※0.1秒単位で切り上げ
 def fmt_time_lap(sec):
     total_tenths = math.ceil(sec * 10)
     rem_tenths = total_tenths % 10
@@ -177,11 +174,8 @@ def get_section_start_time(df, section_num):
         return parse_time_str(row.iloc[0]['Time'])
     return None
 
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-# 【新機能】JavaScriptタイマー表示関数
-# Pythonからは「現在何秒経過しているか」だけを渡し、
-# ブラウザ(JS)側で高速カウントアップさせます。サーバー負荷はゼロです。
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# JavaScriptタイマー表示関数
+# Pythonからは「現在何秒経過しているか」を渡し、ブラウザ(JS)側でカウントアップさせる（サーバー負荷軽減）
 def show_js_timer(km_sec, sec_sec, split_sec):
     # ミリ秒単位に変換
     km_ms = int(km_sec * 1000)
@@ -236,7 +230,6 @@ def show_js_timer(km_sec, sec_sec, split_sec):
 
         function fmtLap(ms) {{
             // 0.1秒単位で切り上げ (Math.ceil)
-            // 100ms単位にする -> ceil -> 戻す
             const totalTenths = Math.ceil(ms / 100); 
             const totalSec = Math.floor(totalTenths / 10);
             const remTenths = totalTenths % 10;
@@ -286,7 +279,6 @@ def show_js_timer(km_sec, sec_sec, split_sec):
     </body>
     </html>
     """
-    # iframeとして埋め込み (高さ調整)
     components.html(html_code, height=90)
 
 # ==========================================
@@ -332,7 +324,6 @@ else:
     
     # 1. フィニッシュ済み
     if last_point == "Finish":
-            # st.balloons()
         st.success("🏆 競技終了！お疲れ様でした！")
         
         st.metric("🏁 フィニッシュ時刻", last_row['Time'])
@@ -344,7 +335,6 @@ else:
         
         with st.expander("管理メニュー"):
             st.write("設定")
-            # デフォルトをONにする仕様
             auto_reload_finish = st.toggle("🔄 自動更新", value=True, key="auto_reload_finish")
             
             st.divider()
@@ -359,15 +349,11 @@ else:
     
     # 2. レース中
     else:
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【v1.3.8 最強の合わせ技】
-        # レース操作盤全体をFragmentで囲み、4秒ごとに「部分更新」します。
-        # 画面全体のリロード(st_autorefresh)は発生しません。軽い！
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # レース操作盤のFragment定義
+        # 4秒ごとにこの関数内のみを部分更新し、画面全体のリロードを防ぐ
         @st.fragment(run_every=4)
         def show_race_dashboard():
             # Fragment内でデータを再取得（同期）
-            # ttlを短くして、他の人の更新をキャッチできるようにする
             conn = st.connection("gsheets", type=GSheetsConnection)
             current_df = load_data(conn)
             
@@ -409,8 +395,7 @@ else:
             with c_title:
                 st.markdown(f"### {header_text}")
             with c_btn:
-                # Fragment内でのRerunはそのFragmentの再実行になるが、
-                # st.rerun()を呼ぶとアプリ全体がリロードされるのでデータ同期に使える
+                # Fragment内でのRerunによる即時データ同期
                 if st.button("🔄", help="即時更新"):
                     st.cache_data.clear()
                     st.rerun()
@@ -464,7 +449,7 @@ else:
         # Fragmentの実行
         show_race_dashboard()
 
-        # ログ表示 (Fragmentの外に出して更新頻度を下げても良いが、一緒に見たければ中に入れてもOK。今回は外で静的表示)
+        # ログ表示
         st.divider()
         with st.expander("📊 計測ログを表示"):
             st.dataframe(df.iloc[::-1], use_container_width=True)
