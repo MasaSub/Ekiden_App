@@ -183,7 +183,7 @@ else:
     
     # 1. フィニッシュ済み
     if last_point == "Finish":
-        st.balloons()
+            # st.balloons()
         st.success("🏆 競技終了！お疲れ様でした！")
         
         st.metric("🏁 フィニッシュ時刻", last_row['時刻'])
@@ -196,7 +196,7 @@ else:
         with st.expander("管理メニュー"):
             st.write("設定")
             # デフォルトをONにする仕様
-            auto_reload = st.toggle("🔄 自動更新", value=True)
+            auto_reload_finish = st.toggle("🔄 自動更新", value=True, key="auto_reload_finish")
             
             st.divider()
 
@@ -205,8 +205,8 @@ else:
                 st.cache_data.clear() # 即クリア
                 st.rerun()
             
-        if auto_reload:
-            st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="datarefresh")
+        if auto_reload_finish:
+            st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="refresh_finish")
     
     # 2. レース中
     else:
