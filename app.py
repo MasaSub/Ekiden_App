@@ -106,7 +106,7 @@ st.markdown("""
 # st.title の代わりに HTML を使ってデザインを自由に指定します
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 st.markdown("""
-    <h2 style='text-align: center; font-size: 24px; margin-bottom: 5px;'>
+    <h2 style='text-align: center; font-size: 24px; margin-bottom: 2px;'>
         🎽 EKIDEN-計測
     </h2>
 """, unsafe_allow_html=True)
