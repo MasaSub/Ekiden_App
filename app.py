@@ -19,7 +19,7 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6e
 WORKSHEET_NAME = "log"
 JST = ZoneInfo("Asia/Tokyo")
 AUTO_RELOAD_SEC = 10
-AUTO_REFRESH_INTERVAL_MS = 100
+AUTO_REFRESH_INTERVAL_MS = 1000
 
 # ページ設定
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
@@ -205,7 +205,7 @@ if df.empty or len(df) == 0:
         auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
     
     if auto_reload_start:
-        st_autorefresh(interval=AUTO_RELOAD_SEC*100, key="refresh_start")
+        st_autorefresh(interval=10000, key="refresh_start")
 
 
 # --- B. レース進行中 or 終了後 ---
@@ -238,7 +238,7 @@ else:
                 st.rerun()
             
         if auto_reload_finish:
-            st_autorefresh(interval=AUTO_REFRESH_INTERVAL_MS*300, key="refresh_finish")
+            st_autorefresh(interval=30000, key="refresh_finish")
     
     # 2. レース中
     else:
