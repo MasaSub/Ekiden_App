@@ -19,7 +19,7 @@ VERSION = "ver 1.3.5" ###更新毎に書き換え
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
 JST = ZoneInfo("Asia/Tokyo")
-CACHE_TTL_SEC = 4
+CACHE_TTL_SEC = 1.5
 
 # ページ設定
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
