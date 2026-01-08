@@ -35,6 +35,17 @@ st.markdown("""
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
+            
+    /* 【重要】スマホでもカラムを縦積みにせず、無理やり横に並べる設定 */
+    div[data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        gap: 0.5rem !important; /* ボタンと文字の間隔 */
+    }
+    div[data-testid="column"] {
+        min-width: 0 !important; /* これがないと幅確保で折り返されてしまう */
+        flex: 1 !important;      /* 均等伸縮 */
+    }
+            
     /* 通常ボタン（更新・次へ・Finishなど） */
     div.stButton > button {
         height: 2.5em;           /* 3.5emから縮小（スリムに） */
@@ -56,7 +67,11 @@ st.markdown("""
     
     /* タイトルの余白を詰める */
     h3 {
-        display: none; /* Python側のタイトルは非表示にします */
+        padding: 0px;
+        margin: 0px;
+        white-space: nowrap; /* 文字が長くても折り返さない */
+        font-size: 1.5rem !important;
+        line-height: 1.5 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -184,26 +199,24 @@ else:
         elapsed_str = f"{mins:02}:{secs:02}"
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【決定版】ヘッダー統合型HTMLパネル
-        # タイトルと更新ボタンをこの中に同居させることで、スマホでも横並びを強制します
+        # 【修正】タイトルと更新ボタン（Python標準機能 + CSS強制横並び）
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        st.markdown(f"""
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 5px;">
-            <div style="font-size: 22px; font-weight: bold;">
-                🏃‍♂️ {next_section_num}区 走行中
-            </div>
-            <a href="javascript:window.location.reload();" style="
-                text-decoration: none; 
-                background-color: #333; 
-                color: white; 
-                padding: 5px 12px; 
-                border-radius: 8px; 
-                font-size: 14px;
-                border: 1px solid #555;">
-                ♻️ 更新
-            </a>
-        </div>
+        
+        # 比率を [5, 1] くらいにして、ボタンを右端に小さく置きます
+        c_title, c_btn = st.columns([5, 1])
+        
+        with c_title:
+            # タイトル表示
+            st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中！ 📣")
+            
+        with c_btn:
+            # Pythonのボタン機能を使うのでエラーは起きません
+            # アイコンのみにしてスペース節約
+            if st.button("♻️", help="更新", use_container_width=True):
+                st.rerun()
 
+        # HTMLパネル（ここは変更なし）
+        st.markdown(f"""
         <div style="
             display: flex; 
             justify-content: space-between; 
