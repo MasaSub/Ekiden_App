@@ -142,7 +142,7 @@ def style_decimal(time_str):
 def fmt_time(sec):
     m, s = divmod(int(sec), 60)
     h, m = divmod(m, 60)
-    return f"{h:02}:{m:02}:{s:02}"
+    return f"{h:01}:{m:02}:{s:02}"
 
 # ラップ用 (mm:ss.f)
 def fmt_time_lap(sec):
