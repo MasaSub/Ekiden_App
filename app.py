@@ -110,11 +110,16 @@ st.markdown(f"""
 # 関数定義
 # ==========================================
 def load_data(conn):
-    try:
-        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=AUTO_RELOAD_SEC)
-        return df
-    except Exception as e:
-        return pd.DataFrame()
+    #try:
+    df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=AUTO_RELOAD_SEC)
+    if not df.empty:
+        cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split']
+        for col in cols_to_str:
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+    return df
+    # except Exception as e:
+    #     return pd.DataFrame()
 
 # 【修正】時刻保存用 (HH:MM:SS.f)
 def get_time_str(dt):
