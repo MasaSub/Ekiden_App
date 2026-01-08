@@ -98,7 +98,7 @@ else:
         
         # スタート時刻からの経過時間計算（簡易版）
         # ※日付をまたぐ場合などはより厳密な計算が必要ですが、日中の駅伝ならこれで動作します
-        start_obj = datetime.strptime(start_time_str, "%H:%M:%S").replace(year=now_obj.year, month=now_obj.month, day=now_obj.day)
+        start_obj = datetime.strptime(start_time_str, "%H:%M:%S").replace(year=now_obj.year, month=now_obj.month, day=now_obj.day, tzinfo=ZoneInfo("Asia/Tokyo"))
         
         # マイナスになる（日付またぎ）対策
         if now_obj < start_obj:
