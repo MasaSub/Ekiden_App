@@ -20,7 +20,7 @@ JST = ZoneInfo("Asia/Tokyo")
 AUTO_RELOAD_SEC = 10
 
 # ページ設定
-st.set_page_config(page_title="EKIDEN-計測", page_icon="🎽")
+st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽")
 
 # ==========================================
 # CSSデザイン定義
