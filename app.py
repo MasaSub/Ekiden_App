@@ -47,21 +47,36 @@ st.markdown("""
         gap: 10px !important;
         align-items: center !important;
     }
-    div[data-testid="column"] {
+            
+    /* 右側のカラム（更新ボタン）を右端に寄せる設定 */
+    div[data-testid="column"]:nth-of-type(2) {
+        display: flex !important;
+        justify-content: flex-end !important; /* 中身を右寄せ */
         width: auto !important;
-        min-width: 0 !important;
-        flex: none !important;
     }
             
-    /* 通常ボタン（更新・次へ・Finishなど） */
+    /* -------------------------------------------------------
+       ボタンのデザイン（ここを分けます）
+       ------------------------------------------------------- */
+    
+    /* 1. 更新ボタン（ヘッダー内にあるボタン）の特別設定 */
+    div[data-testid="stHorizontalBlock"] button {
+        height: 2.5em !important;      /* 高さを指定 */
+        width: 3em !important;         /* 横幅も指定して箱型にする */
+        padding: 0px !important;       /* 余計な余白を消す */
+        margin: 0px !important;
+        border-radius: 8px !important;
+        line-height: 1 !important;     /* アイコンを垂直中央に */
+        float: right !important;       /* 念の為の右寄せ */
+    }
+
+    /* 2. その他のボタン（ラップ・次へ・Finish） */
     div.stButton > button {
-        height: 2.8em;           /* 3.5emから縮小（スリムに） */
-        font-size: 16px;         /* 文字も少し控えめに */
+        height: 3em;
+        font-size: 18px;
         font-weight: bold;
-        border-radius: 8px;
-        margin: 0px;
-        padding: 0px 12px;
-        white-space: nowrap; /* ボタン内の文字も折り返さない */
+        border-radius: 10px;
+        width: 100%;
     }
     
     /* ラップ計測ボタン（Primary）だけは少し大きく残す */
