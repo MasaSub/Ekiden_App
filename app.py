@@ -43,13 +43,18 @@ st.markdown("""
     /* 【重要】スマホでもカラムを縦積みにせず、無理やり横に並べる設定 */
     div[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
-        gap: 0px !important; /* ボタンと文字の間隔 */
+        gap: 5px !important; /* ボタンと文字の間隔 */
         align-items: center !important;
     }
     div[data-testid="column"] {
         min-width: 0px !important; /* これがないと幅確保で折り返されてしまう */
         padding: 0px !important;
-        flex: 1 !important;      /* 均等伸縮 */
+    }
+            
+    /* 左のカラム（タイトル）：余った幅を全部使う */
+    div[data-testid="column"]:nth-of-type(1) {
+        flex: 1 1 auto !important; 
+        width: auto !important;
     }
     
     /* 更新ボタン（2列目）の幅を「ボタンの中身」に合わせる */
@@ -64,10 +69,9 @@ st.markdown("""
         font-size: 16px;         /* 文字も少し控えめに */
         font-weight: bold;
         border-radius: 8px;
-        width: 100%;
         margin: 0px;
-        padding: 0px 10px;
-        width: 100%;
+        padding: 0px 15px;
+        white-space: nowrap; /* ボタン内の文字も折り返さない */
     }
     
     /* ラップ計測ボタン（Primary）だけは少し大きく残す */
@@ -77,14 +81,17 @@ st.markdown("""
         height: 4.0em;
         font-size: 36px;
         padding: 0px;
+        width: 100%; /* これだけは横幅いっぱいに */
     }
     
     /* タイトルの余白を詰める */
     h3 {
         padding: 0px;
         margin: 0px;
-        white-space: nowrap; /* 文字が長くても折り返さない */
-        font-size: 1.4rem !important;
+        font-size: 1.3rem !important; /* スマホで大きすぎないサイズに */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* 文字が溢れたら...にする */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -216,11 +223,11 @@ else:
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         
         # 比率を [5, 1] くらいにして、ボタンを右端に小さく置きます
-        c_title, c_btn = st.columns([3, 2])
+        c_title, c_btn = st.columns([5, 1])
         
         with c_title:
             # タイトル表示
-            st.markdown(f"### 🏃‍♂️ {next_section_num}区")
+            st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
             
         with c_btn:
             # Pythonのボタン機能を使うのでエラーは起きません
