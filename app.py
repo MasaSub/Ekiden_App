@@ -182,7 +182,7 @@ else:
 
         # 2. タスキリレー
         with c_relay:
-            if st.button(f"🎽 次へ ({next_section_num+1}区)", use_container_width=True):
+            if st.button(f"🎽 {next_section_num}区→{next_section_num+1}区へ", use_container_width=True):
                 lap_sec = (now_obj - last_time_obj).total_seconds()
                 total_sec = (now_obj - first_time_obj).total_seconds()
                 
