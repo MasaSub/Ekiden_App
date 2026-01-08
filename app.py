@@ -19,8 +19,7 @@ VERSION = "ver 1.3.5" ###更新毎に書き換え
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
 JST = ZoneInfo("Asia/Tokyo")
-AUTO_RELOAD_SEC = 10
-AUTO_REFRESH_INTERVAL_MS = 5000
+CACHE_TTL_SEC = 4
 
 # ページ設定
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
@@ -355,167 +354,112 @@ else:
     
     # 2. レース中
     else:
-        last_time_obj = parse_time_str(last_row['Time'])
-        first_time_obj = parse_time_str(df.iloc[0]['Time'])
-            # now_for_record = datetime.now(JST)
-
-        current_section_str = str(last_row['Section']) 
-        try: current_section_num = int(current_section_str.replace("区", ""))
-        except: current_section_num = 1
-
-        if last_point == "Relay":
-            next_section_num = current_section_num + 1
-            next_km = 1
-        else:
-            next_section_num = current_section_num
-            if "km" in last_point:
-                try: last_km = int(last_point.replace("km", ""))
-                except: last_km = 0
-            else: last_km = 0
-            next_km = last_km + 1
-
-        # ヘッダー表示
-        if last_point in ["Start", "Relay"]:
-            current_dist_val = 0
-        elif "km" in last_point:
-            try: current_dist_val = int(last_point.replace("km", ""))
-            except: current_dist_val = 0
-        else:
-            current_dist_val = 0
-        
-        header_text = f"🏃‍♂️ {next_section_num}区 {current_dist_val} ~ {current_dist_val+1} km 走行中📣"
-
-        c_title, c_btn = st.columns([1, 1])
-        with c_title:
-            st.markdown(f"### {header_text}")
-        with c_btn:
-            if st.button("🔄", help="更新"):
-                st.cache_data.clear()
-                st.rerun()
-
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【v1.3.7】JavaScriptタイマーの埋め込み
-        # サーバー負荷ゼロで滑らかなカウントアップを実現
+        # 【v1.3.8 最強の合わせ技】
+        # レース操作盤全体をFragmentで囲み、4秒ごとに「部分更新」します。
+        # 画面全体のリロード(st_autorefresh)は発生しません。軽い！
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        
-        # 現在時点での経過時間（秒）を計算してJSに渡す
-        now_calc = datetime.now(JST)
-        
-        # 1. キロラップ
-        elapsed_km = (now_calc - last_time_obj).total_seconds()
-        
-        # 2. 区間ラップ
-        sec_start = get_section_start_time(df, next_section_num)
-        if sec_start:
-            elapsed_sec = (now_calc - sec_start).total_seconds()
-        else:
-            elapsed_sec = 0
+        @st.fragment(run_every=4)
+        def show_race_dashboard():
+            # Fragment内でデータを再取得（同期）
+            # ttlを短くして、他の人の更新をキャッチできるようにする
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            current_df = load_data(conn)
             
-        # 3. スプリット
-        elapsed_split = (now_calc - first_time_obj).total_seconds()
+            if current_df.empty: return
 
-        # JSコンポーネント呼び出し
-        show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
+            last_row = current_df.iloc[-1]
+            last_point = str(last_row['Location'])
+            last_time_obj = parse_time_str(last_row['Time'])
+            first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
+            
+            # 区間判定
+            current_section_str = str(last_row['Section']) 
+            try: current_section_num = int(current_section_str.replace("区", ""))
+            except: current_section_num = 1
 
-        st.divider()
-
-        # ここから下のボタン処理（ラップ・中継・Finish）は
-        # now_for_record を再計算する必要があるので注意！
-        now_for_record = datetime.now(JST) # ボタン押下時点の時刻
-
-        # 操作ボタン類
-        # 1. ラップ計測
-        if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
-            lap_sec = (now_for_record - last_time_obj).total_seconds()
-            total_sec = (now_for_record - first_time_obj).total_seconds()
-            # 【追加】区間ラップの計算
-            section_start_obj = get_section_start_time(df, next_section_num)
-            if section_start_obj:
-                section_lap_sec = (now_for_record - section_start_obj).total_seconds()
+            if last_point == "Relay":
+                next_section_num = current_section_num + 1
+                next_km = 1
             else:
-                section_lap_sec = 0
-            
-            # 保存データ作成（英語列名）
-            new_row = pd.DataFrame([{
-                "Section": f"{next_section_num}区", 
-                "Location": f"{next_km}km",
-                "Time": get_time_str(now_for_record), 
-                "KM-Lap": fmt_time_lap(lap_sec), 
-                "SEC-Lap": fmt_time_lap(section_lap_sec), 
-                "Split": fmt_time(total_sec)
-            }])
-            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-            st.cache_data.clear() # 即クリア
-            st.toast(f"{next_km}km地点を記録！")
-            st.rerun()
+                next_section_num = current_section_num
+                if "km" in last_point:
+                    try: last_km = int(last_point.replace("km", ""))
+                    except: last_km = 0
+                else: last_km = 0
+                next_km = last_km + 1
 
-        # 2. 中継ボタン
-        if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
-            lap_sec = (now_for_record - last_time_obj).total_seconds()
-            total_sec = (now_for_record - first_time_obj).total_seconds()
-            # 【追加】区間ラップの計算
-            section_start_obj = get_section_start_time(df, next_section_num)
-            if section_start_obj:
-                section_lap_sec = (now_for_record - section_start_obj).total_seconds()
+            # ヘッダー表示
+            if last_point in ["Start", "Relay"]:
+                current_dist_val = 0
+            elif "km" in last_point:
+                try: current_dist_val = int(last_point.replace("km", ""))
+                except: current_dist_val = 0
             else:
-                section_lap_sec = 0
+                current_dist_val = 0
             
-            # 保存データ作成（英語列名）
-            new_row = pd.DataFrame([{
-                "Section": f"{next_section_num}区", 
-                "Location": "Relay",
-                "Time": get_time_str(now_for_record), 
-                "KM-Lap": fmt_time_lap(lap_sec), 
-                "SEC-Lap": fmt_time_lap(section_lap_sec), 
-                "Split": fmt_time(total_sec)
-            }])
-            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-            st.cache_data.clear() # 即クリア
-            st.success(f"{next_section_num+1}区へリレーしました！")
-            st.rerun()
-        
-        # 3. Finishボタン
-        if st.button("🏆 Finish", use_container_width=True):
-            lap_sec = (now_for_record - last_time_obj).total_seconds()
-            total_sec = (now_for_record - first_time_obj).total_seconds()
-            # 【追加】区間ラップの計算
-            section_start_obj = get_section_start_time(df, next_section_num)
-            if section_start_obj:
-                section_lap_sec = (now_for_record - section_start_obj).total_seconds()
-            else:
-                section_lap_sec = 0
+            header_text = f"🏃‍♂️ {next_section_num}区 {current_dist_val} ~ {current_dist_val+1} km 走行中📣"
             
-            # 保存データ作成（英語列名）
-            new_row = pd.DataFrame([{
-                "Section": f"{next_section_num}区", 
-                "Location": "Finish",
-                "Time": get_time_str(now_for_record), 
-                "KM-Lap": fmt_time_lap(lap_sec), 
-                "SEC-Lap": fmt_time_lap(section_lap_sec), 
-                "Split": fmt_time(total_sec)
-            }])
-            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-            st.cache_data.clear() # 即クリア
-            st.rerun()
+            c_title, c_btn = st.columns([1, 1])
+            with c_title:
+                st.markdown(f"### {header_text}")
+            with c_btn:
+                # Fragment内でのRerunはそのFragmentの再実行になるが、
+                # st.rerun()を呼ぶとアプリ全体がリロードされるのでデータ同期に使える
+                if st.button("🔄", help="即時更新"):
+                    st.cache_data.clear()
+                    st.rerun()
 
-        # ログ表示
-        with st.expander("📊 計測ログを表示（タップして開閉）"):
-            st.dataframe(df.iloc[::-1], use_container_width=True)
-        
-        # 管理メニュー（自動更新機能の追加）
-        with st.expander("管理メニュー"):
-            st.write("設定")
-            # デフォルトをONにする仕様
-            auto_reload = st.toggle("🔄 自動更新", value=True)
-            
+            # JSタイマー用の時間計算
+            now_calc = datetime.now(JST)
+            elapsed_km = (now_calc - last_time_obj).total_seconds()
+            sec_start = get_section_start_time(current_df, next_section_num)
+            elapsed_sec = (now_calc - sec_start).total_seconds() if sec_start else 0
+            elapsed_split = (now_calc - first_time_obj).total_seconds()
+
+            # JSコンポーネント表示 (Fragment更新ごとに再マウントされるが、計算が合っていれば時間はズレない)
+            show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
+
             st.divider()
-            
-            if st.button("⚠️ データ全消去"):
-                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
-                st.rerun()
-        
-        if auto_reload:
-            st_autorefresh(interval=AUTO_REFRESH_INTERVAL_MS, key="datarefresh")
-            # interval=10000 は 10,000ミリ秒 = 10秒 です
-            # このコンポーネントを置くだけで勝手に更新されます（st.rerun不要）
 
+            # ボタン処理 (押下時の時刻で記録)
+            now_for_record = datetime.now(JST)
+
+            # 共通の保存処理関数
+            def save_record(loc_text, is_finish=False):
+                lap_sec = (now_for_record - last_time_obj).total_seconds()
+                total_sec = (now_for_record - first_time_obj).total_seconds()
+                section_start_obj = get_section_start_time(current_df, next_section_num)
+                section_lap_sec = (now_for_record - section_start_obj).total_seconds() if section_start_obj else 0
+                
+                new_row = pd.DataFrame([{
+                    "Section": f"{next_section_num}区", 
+                    "Location": loc_text,
+                    "Time": get_time_str(now_for_record), 
+                    "KM-Lap": fmt_time_lap(lap_sec), 
+                    "SEC-Lap": fmt_time_lap(section_lap_sec), 
+                    "Split": fmt_time(total_sec)
+                }])
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([current_df, new_row]))
+                st.cache_data.clear()
+                # ボタンを押したときはアプリ全体をリロードして確定させる
+                st.rerun()
+
+            if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
+                save_record(f"{next_km}km")
+                st.toast(f"{next_km}km地点を記録！")
+
+            if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
+                save_record("Relay")
+                st.success("リレーしました！")
+
+            if st.button("🏆 Finish", use_container_width=True):
+                save_record("Finish")
+        
+        # Fragmentの実行
+        show_race_dashboard()
+
+        # ログ表示 (Fragmentの外に出して更新頻度を下げても良いが、一緒に見たければ中に入れてもOK。今回は外で静的表示)
+        st.divider()
+        with st.expander("📊 計測ログを表示"):
+            st.dataframe(df.iloc[::-1], use_container_width=True)
