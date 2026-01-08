@@ -46,6 +46,14 @@ st.markdown("""
         margin-bottom: 0px;
     }
     
+    /* ラップ計測ボタン（Primary）だけは少し大きく残す */
+    div.stButton > button[kind="primary"] {
+        background-color: #FF4B4B;
+        color: white;
+        height: 3.5em;           /* 4.5emから縮小 */
+        font-size: 22px;
+    }
+    
     /* タイトルの余白を詰める */
     h3 {
         padding-top: 0px;
