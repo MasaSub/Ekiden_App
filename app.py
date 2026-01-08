@@ -194,7 +194,7 @@ else:
         c_title, c_btn = st.columns([7, 2], gap="small") 
         
         with c_title:
-            st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
+            st.markdown(f"### 🏃‍♂️ {next_section_num}区")
             
         with c_btn:
             # ボタンのラベルを「🔄」だけにして省スペース化
