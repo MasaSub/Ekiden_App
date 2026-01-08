@@ -136,8 +136,6 @@ df = load_data(conn)
 # --- A. レース開始前 ---
 if df.empty or len(df) == 0:
     st.info("レース開始前")
-
-    st_autorefresh(interval=AUTO_RELOAD_SEC*200, key="refresh_start")
     
     # スタートボタン
     if st.button("🔫 レーススタート (1区)", type="primary", use_container_width=True):
