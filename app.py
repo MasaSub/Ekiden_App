@@ -185,9 +185,9 @@ if df.empty or len(df) == 0:
             "Section": "1区", 
             "Location": "Start", 
             "Time": get_time_str(now),
-            "KM-Lap": "00:00:00", 
-            "SEC-Lap": "00:00:00", 
-            "Split": "00:00:00"
+            "KM-Lap": "00:00:00.0", 
+            "SEC-Lap": "00:00:00.0", 
+            "Split": "00:00:00.0"
         }])
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
         st.cache_data.clear()
