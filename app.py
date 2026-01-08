@@ -284,7 +284,7 @@ else:
         
         # 1. ラップ計測ボタン（画面幅いっぱいに独立）
         # スマホで一番押しやすい位置に配置
-        if st.button(f"⏱️ {next_km}km ラップ", type="primary", use_container_width=True):
+        if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
             lap_sec = (now_obj - last_time_obj).total_seconds()
             total_sec = (now_obj - first_time_obj).total_seconds()
             new_row = pd.DataFrame([{
