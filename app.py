@@ -35,25 +35,22 @@ st.markdown("""
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
-    /* ボタン全体のデザイン（高さ確保・文字サイズ大） */
+    /* 通常ボタン（更新・次へ・Finishなど） */
     div.stButton > button {
-        height: 3.5em;
-        font-size: 20px;
+        height: 2.5em;           /* 3.5emから縮小（スリムに） */
+        font-size: 18px;         /* 文字も少し控えめに */
         font-weight: bold;
-        border-radius: 12px;
+        border-radius: 10px;
         width: 100%;
+        margin-top: 0px;
+        margin-bottom: 0px;
     }
-    /* 修正後（スマホ向けに少し控えめなサイズにする） */
-    div[data-testid="stMetricValue"] {
-        font-size: 20px;
-    }
-    /* ラップ計測ボタン（Primary）だけさらに目立たせる */
-    div.stButton > button[kind="primary"] {
-        background-color: #FF4B4B;
-        color: white;
-        height: 4.5em; /* メインボタンは特に大きく */
-        font-size: 24px;
-        margin-bottom: 10px; /* 下のボタンとの間隔 */
+    
+    /* タイトルの余白を詰める */
+    h3 {
+        padding-top: 0px;
+        margin-top: 0px;
+        margin-bottom: 0.5rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -181,21 +178,20 @@ else:
         elapsed_str = f"{mins:02}:{secs:02}"
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【修正】タイトルと更新ボタンを横並びにする
+        # 【修正】タイトルと更新ボタン
+        # スマホで縦積みになっても邪魔にならないよう、ボタンを「アイコンのみ」にします
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         
-        # 1. タイトルエリアを分割（左：テキスト、右：ボタン）
-        # 比率を [3, 1] にして、テキストのスペースを広く取ります
-        c_title, c_btn = st.columns([3, 1]) 
+        # カラム比率を調整して横並びを狙いますが、スマホでは縦になる前提のデザインにします
+        c_title, c_btn = st.columns([7, 2], gap="small") 
         
         with c_title:
             st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
             
         with c_btn:
-            # ここに更新ボタンを移動！
-            # タイトルの高さと合わせるため、少し余白調整のCSSを入れてもいいですが、
-            # まずは標準配置で置きます。
-            if st.button("🔄 更新", use_container_width=True):
+            # ボタンのラベルを「🔄」だけにして省スペース化
+            # 縦積みになっても「更新」という文字がない分、行がスッキリします
+            if st.button("🔄", help="画面を更新", use_container_width=True):
                 st.rerun()
 
         # 2. 横並びパネル (HTML) - インデント対策済み
