@@ -216,7 +216,7 @@ else:
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         
         # 比率を [5, 1] くらいにして、ボタンを右端に小さく置きます
-        c_title, c_btn = st.columns([3, 1])
+        c_title, c_btn = st.columns([2, 1])
         
         with c_title:
             # タイトル表示
@@ -275,33 +275,34 @@ else:
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
             st.toast(f"{next_km}km地点を記録！")
             st.rerun()
-
-        # 2. サブボタン（リレーとフィニッシュ）は横並び
-        # ラップボタンの下に配置し、押し間違いを防ぎます
-        c_relay, c_Finish = st.columns(2)
-
-        with c_relay:
-            if st.button(f"🎽 次へ ({next_section_num+1}区)", use_container_width=True):
-                lap_sec = (now_obj - last_time_obj).total_seconds()
-                total_sec = (now_obj - first_time_obj).total_seconds()
-                new_row = pd.DataFrame([{
-                    "区間": f"{next_section_num}区", "地点": "Relay",
-                    "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
-                }])
-                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-                st.success(f"{next_section_num+1}区へリレーしました！")
-                st.rerun()
         
-        with c_Finish:
-            if st.button("🏆 Finish", use_container_width=True):
-                lap_sec = (now_obj - last_time_obj).total_seconds()
-                total_sec = (now_obj - first_time_obj).total_seconds()
-                new_row = pd.DataFrame([{
-                    "区間": f"{next_section_num}区", "地点": "Finish",
-                    "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
-                }])
-                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-                st.rerun()
+        st.write("")
+
+        # 2. 中継ボタン（columnsを使わず、そのまま書く＝縦に並ぶ）
+        if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
+            lap_sec = (now_obj - last_time_obj).total_seconds()
+            total_sec = (now_obj - first_time_obj).total_seconds()
+            new_row = pd.DataFrame([{
+                "区間": f"{next_section_num}区", "地点": "Relay",
+                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+            }])
+            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.success(f"{next_section_num+1}区へリレーしました！")
+            st.rerun()
+
+        # ボタンの間に少し隙間を空ける
+        st.write("") 
+        
+        # 3. Finishボタン（一番下に配置）
+        if st.button("🏆 Finish", use_container_width=True):
+            lap_sec = (now_obj - last_time_obj).total_seconds()
+            total_sec = (now_obj - first_time_obj).total_seconds()
+            new_row = pd.DataFrame([{
+                "区間": f"{next_section_num}区", "地点": "Finish",
+                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+            }])
+            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.rerun()
         # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
