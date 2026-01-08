@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.0 date = 2026/01/08
+# version = 1.1 date = 2026/01/08
 # ==========================================
 
 import streamlit as st
@@ -11,6 +11,8 @@ from streamlit_gsheets import GSheetsConnection
 # ==========================================
 # 設定・定数（必要に応じて変更してください）
 # ==========================================
+
+# 【重要】ご自身のスプレッドシートURLに書き換えてください
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"  # スプレッドシートのタブ名
 
@@ -46,6 +48,12 @@ def parse_time_str(time_str):
         return datetime.combine(now.date(), t).replace(tzinfo=JST)
     except:
         return now # エラー時は現在時刻
+    
+def fmt_time(sec):
+    """秒数を hh:mm:ss 形式にする"""
+    m, s = divmod(int(sec), 60)
+    h, m = divmod(m, 60)
+    return f"{h:02}:{m:02}:{s:02}"
 
 # ==========================================
 # メイン処理
@@ -55,7 +63,7 @@ df = load_data(conn)
 
 # --- A. レース開始前（データが空） ---
 if df.empty or len(df) == 0:
-    st.info("データがありません。レースを開始してください。")
+    st.info("レース開始前")
     
     if st.button("🔫 レーススタート (1区)", type="primary", use_container_width=True):
         now = datetime.now(JST)
@@ -71,140 +79,148 @@ if df.empty or len(df) == 0:
         st.success("レーススタート！")
         st.rerun()
 
-# --- B. レース進行中 ---
+# --- B. レース進行中 or 終了後 ---
 else:
-    # 1. 最新データの取得と解析
+    # 最新データの取得
     last_row = df.iloc[-1]
+    last_point = str(last_row['地点'])
     
-    # 最後の時刻とスタート時刻を復元
-    last_time_obj = parse_time_str(last_row['時刻'])
-    first_time_obj = parse_time_str(df.iloc[0]['時刻'])
-    now_obj = datetime.now(JST)
-
-    # 現在の状況解析
-    current_section_str = str(last_row['区間']) # "1区" など
-    current_point = str(last_row['地点'])       # "Start", "3km", "Relay" など
-    
-    # 区間番号を数値で取り出す（"1区" -> 1）
-    try:
-        current_section_num = int(current_section_str.replace("区", ""))
-    except:
-        current_section_num = 1
-
-    # 次のアクションを決定するロジック
-    # もし前回が「Relay」なら、次は「新しい区間の1km」
-    # もし前回が「Start」や「km」なら、次は「同じ区間の+1km」または「Relay」
-    if current_point == "Relay":
-        next_section_num = current_section_num + 1
-        next_km = 1
-        is_new_section_start = True
-    else:
-        next_section_num = current_section_num
-        # 地点から数値を取り出す（"Start"なら0, "3km"なら3）
-        if "Start" in current_point:
-            last_km = 0
-        elif "km" in current_point:
-            try:
-                last_km = int(current_point.replace("km", ""))
-            except:
-                last_km = 0
-        else:
-            last_km = 0
+    # ------------------------------------
+    # パターン1: すでにゴールしている場合
+    # ------------------------------------
+    if last_point == "Goal":
+        st.balloons() # お祝いのエフェクト！
+        st.success("🏆 競技終了！お疲れ様でした！")
         
-        next_km = last_km + 1
-        is_new_section_start = False
+        st.metric("🏁 ゴール時刻", last_row['時刻'])
+        st.metric("⏱️ 最終タイム", last_row['スプリット'])
+        
+        st.divider()
+        st.markdown("### 📊 最終リザルト")
+        st.dataframe(df, use_container_width=True)
+        
+        # 管理用メニュー
+        with st.expander("管理メニュー"):
+            if st.button("⚠️ データ全消去（次のレースへ）"):
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
+                st.rerun()
 
-    # --- リアルタイム経過時間表示 ---
-    # 最終計測からの経過時間
-    elapsed_since_last = now_obj - last_time_obj
-    elapsed_total = now_obj - first_time_obj
-    
-    # 秒数を「MM:SS」形式に
-    mins, secs = divmod(elapsed_since_last.seconds, 60)
-    elapsed_str = f"{mins:02}:{secs:02}"
+    # ------------------------------------
+    # パターン2: まだレース中の場合
+    # ------------------------------------
+    else:
+        # 時刻計算の準備
+        last_time_obj = parse_time_str(last_row['時刻'])
+        first_time_obj = parse_time_str(df.iloc[0]['時刻'])
+        now_obj = datetime.now(JST)
 
-    st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
-    
-    # メトリクス表示
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("前の通過", f"{current_section_str} {current_point}")
-    with col2:
-        st.metric("前の通過時刻", last_row['時刻'])
-    with col3:
-        # ここが「前ラップからの経過時間」
-        st.metric("⏱️ 現在の経過", elapsed_str, delta_color="off")
-        st.caption("※リロードで更新")
+        # 現在の区間などの判定
+        current_section_str = str(last_row['区間']) 
+        try:
+            current_section_num = int(current_section_str.replace("区", ""))
+        except:
+            current_section_num = 1
 
-    if st.button("🔄 時間を更新（リロード）"):
-        st.rerun()
+        # 次の地点の予測
+        if last_point == "Relay":
+            next_section_num = current_section_num + 1
+            next_km = 1
+        else:
+            next_section_num = current_section_num
+            # "3km" -> 3 を取り出す
+            if "km" in last_point:
+                try:
+                    last_km = int(last_point.replace("km", ""))
+                except:
+                    last_km = 0
+            else:
+                last_km = 0 # Startなど
+            next_km = last_km + 1
 
-    st.divider()
+        # 経過時間表示
+        elapsed_since_last = now_obj - last_time_obj
+        mins, secs = divmod(elapsed_since_last.seconds, 60)
+        elapsed_str = f"{mins:02}:{secs:02}"
 
-    # --- 計測ボタンエリア ---
-    col_lap, col_relay = st.columns([2, 1])
+        st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
 
-    # 1. ラップ計測ボタン
-    with col_lap:
-        btn_label = f"⏱️ {next_km}km ラップ計測"
-        if st.button(btn_label, type="primary", use_container_width=True):
-            # タイム計算
-            lap_seconds = (now_obj - last_time_obj).total_seconds()
-            total_seconds = (now_obj - first_time_obj).total_seconds()
-            
-            # フォーマット
-            def fmt_time(sec):
-                m, s = divmod(int(sec), 60)
-                h, m = divmod(m, 60)
-                return f"{h:02}:{m:02}:{s:02}"
+        # 状況パネル
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("前の通過", f"{last_point}")
+        with col2:
+            st.metric("通過時刻", last_row['時刻'])
+        with col3:
+            st.metric("⏱️ 現在の経過", elapsed_str)
+            st.caption("※リロードで更新")
 
-            new_row = pd.DataFrame([{
-                "区間": f"{next_section_num}区",
-                "地点": f"{next_km}km",
-                "時刻": get_time_str(now_obj),
-                "ラップ": fmt_time(lap_seconds),
-                "スプリット": fmt_time(total_seconds)
-            }])
-            
-            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-            st.toast(f"{next_section_num}区 {next_km}km を記録しました！")
+        if st.button("🔄 最新情報を取得"):
             st.rerun()
 
-    # 2. タスキリレーボタン
-    with col_relay:
-        # まだスタートしたばかりでRelayはおかしいので、最低1回計測してから表示などの制御も可能ですが
-        # ここでは常に表示します
-        relay_label = f"🎽 {next_section_num}区→{next_section_num+1}区へ"
-        if st.button(relay_label, use_container_width=True):
-            # Relayも一種のラップ計測として処理
-            lap_seconds = (now_obj - last_time_obj).total_seconds()
-            total_seconds = (now_obj - first_time_obj).total_seconds()
-            
-            def fmt_time(sec):
-                m, s = divmod(int(sec), 60)
-                h, m = divmod(m, 60)
-                return f"{h:02}:{m:02}:{s:02}"
+        st.divider()
 
-            new_row = pd.DataFrame([{
-                "区間": f"{next_section_num}区",
-                "地点": "Relay", # ここをRelayと記録することで、次は区間が変わる
-                "時刻": get_time_str(now_obj),
-                "ラップ": fmt_time(lap_seconds),
-                "スプリット": fmt_time(total_seconds)
-            }])
-            
-            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-            st.success(f"{next_section_num}区終了！ {next_section_num+1}区へタスキをつなぎました！")
-            st.rerun()
+        # === ボタンエリア（3列構成に変更） ===
+        # 左:ラップ(大), 中央:リレー, 右:ゴール
+        c_lap, c_relay, c_goal = st.columns([2, 1, 1])
 
-    # --- ログ表示 ---
-    st.divider()
-    st.markdown("### 📊 計測ログ")
-    st.dataframe(df.iloc[::-1], use_container_width=True) # 新しい順に表示
+        # 1. ラップ計測
+        with c_lap:
+            if st.button(f"⏱️ {next_km}km ラップ", type="primary", use_container_width=True):
+                lap_sec = (now_obj - last_time_obj).total_seconds()
+                total_sec = (now_obj - first_time_obj).total_seconds()
+                
+                new_row = pd.DataFrame([{
+                    "区間": f"{next_section_num}区",
+                    "地点": f"{next_km}km",
+                    "時刻": get_time_str(now_obj),
+                    "ラップ": fmt_time(lap_sec),
+                    "スプリット": fmt_time(total_sec)
+                }])
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+                st.toast(f"{next_km}km地点を記録！")
+                st.rerun()
 
-    # リセット機能（管理者用）
-    with st.expander("管理メニュー"):
-        if st.button("⚠️ データ全消去"):
-            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
-            st.error("全データを消去しました")
-            st.rerun()
+        # 2. タスキリレー
+        with c_relay:
+            if st.button(f"🎽 次へ ({next_section_num+1}区)", use_container_width=True):
+                lap_sec = (now_obj - last_time_obj).total_seconds()
+                total_sec = (now_obj - first_time_obj).total_seconds()
+                
+                new_row = pd.DataFrame([{
+                    "区間": f"{next_section_num}区",
+                    "地点": "Relay",
+                    "時刻": get_time_str(now_obj),
+                    "ラップ": fmt_time(lap_sec),
+                    "スプリット": fmt_time(total_sec)
+                }])
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+                st.success(f"{next_section_num+1}区へリレーしました！")
+                st.rerun()
+        
+        # 3. ゴールボタン（今回の追加機能！）
+        with c_goal:
+            # 間違って押さないよう、少し警告色っぽい文言にする手もありますが、標準ボタンにします
+            if st.button("🏆 GOAL", use_container_width=True):
+                lap_sec = (now_obj - last_time_obj).total_seconds()
+                total_sec = (now_obj - first_time_obj).total_seconds()
+                
+                new_row = pd.DataFrame([{
+                    "区間": f"{next_section_num}区",
+                    "地点": "Goal",
+                    "時刻": get_time_str(now_obj),
+                    "ラップ": fmt_time(lap_sec),
+                    "スプリット": fmt_time(total_sec)
+                }])
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+                st.rerun() # これでパターン1（終了画面）へ切り替わります
+
+        # ログ表示
+        st.divider()
+        st.markdown("### 📊 計測ログ")
+        st.dataframe(df.iloc[::-1], use_container_width=True)
+        
+        # 途中リセット用
+        with st.expander("管理メニュー"):
+            if st.button("⚠️ データ全消去"):
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
+                st.rerun()
