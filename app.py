@@ -92,7 +92,7 @@ st.markdown("""
     h3 {
         padding: 0px;
         margin: 0px;
-        font-size: 0.7rem !important; /* スマホで大きすぎないサイズに */
+        font-size: 1.3rem !important; /* スマホで大きすぎないサイズに */
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis; /* 文字が溢れたら...にする */
