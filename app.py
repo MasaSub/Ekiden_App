@@ -147,6 +147,7 @@ if df.empty or len(df) == 0:
             "スプリット": "00:00:00"
         }])
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
+        st.cache_data.clear() # 即クリア
         st.success("レーススタート！")
         st.rerun()
 
@@ -170,6 +171,7 @@ else:
         with st.expander("管理メニュー"):
             if st.button("⚠️ データ全消去（次のレースへ）"):
                 conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
+                st.cache_data.clear() # 即クリア
                 st.rerun()
 
     # 2. レース中
@@ -203,6 +205,7 @@ else:
             st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
         with c_btn:
             if st.button("🔄", help="更新"):
+                st.cache_data.clear() # 即クリア
                 st.rerun()
 
         # 情報パネル
@@ -244,6 +247,7 @@ else:
                 "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.cache_data.clear() # 即クリア
             st.toast(f"{next_km}km地点を記録！")
             st.rerun()
 
@@ -256,6 +260,7 @@ else:
                 "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.cache_data.clear() # 即クリア
             st.success(f"{next_section_num+1}区へリレーしました！")
             st.rerun()
         
@@ -268,6 +273,7 @@ else:
                 "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.cache_data.clear() # 即クリア
             st.rerun()
 
         # ログ表示
