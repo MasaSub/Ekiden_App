@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.3.5 date = 2026/01/09
+# version = 1.3.4 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -14,7 +14,7 @@ import streamlit.components.v1 as components # 【追加】JavaScript埋め込�
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.3.5" ###更新毎に書き換え
+VERSION = "ver 1.3.4" ###更新毎に書き換え
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
@@ -374,6 +374,51 @@ else:
             else: last_km = 0
             next_km = last_km + 1
 
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【新機能】ここだけ独立して高速更新するフラグメント
+        # run_every=0.1 で「0.1秒ごとにこの関数だけ再実行」します
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        @st.fragment(run_every=0.1)
+        def show_timer_panel(current_df, section_num, last_time, first_time):
+            # 現在時刻を取得（この関数が動くたびに更新される）
+            now_dynamic = datetime.now(JST)
+
+            # 1. キロラップ計算
+            diff_km = (now_dynamic - last_time).total_seconds()
+            str_km_lap = style_decimal(fmt_time_lap(diff_km))
+
+            # 2. 区間ラップ計算
+            sec_start = get_section_start_time(current_df, section_num)
+            if sec_start:
+                diff_sec = (now_dynamic - sec_start).total_seconds()
+            else:
+                diff_sec = 0
+            str_sec_lap = style_decimal(fmt_time_lap(diff_sec))
+
+            # 3. スプリット計算
+            diff_split = (now_dynamic - first_time).total_seconds()
+            str_split = fmt_time(diff_split) # スプリットは style_decimal しない
+
+            # パネル表示
+            st.markdown(f"""
+<div style="display: flex; justify-content: space-between; align-items: center; background-color: #262730; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;">
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">キロラップ</div>
+        <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_km_lap}</div>
+    </div>
+    <div style="width: 1px; height: 40px; background-color: #555;"></div>
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">区間ラップ</div>
+        <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_sec_lap}</div>
+    </div>
+    <div style="width: 1px; height: 40px; background-color: #555;"></div>
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">スタートから</div>
+        <div style="font-size: 20px; font-weight: bold; color: #ffffff; line-height: 1.3;">{str_split}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
         # ヘッダー表示
         if last_point in ["Start", "Relay"]:
             current_dist_val = 0
@@ -394,28 +439,9 @@ else:
                 st.rerun()
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【v1.3.7】JavaScriptタイマーの埋め込み
-        # サーバー負荷ゼロで滑らかなカウントアップを実現
+        # フラグメント関数の実行（ここで時計が表示され、勝手に更新し続けます）
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        
-        # 現在時点での経過時間（秒）を計算してJSに渡す
-        now_calc = datetime.now(JST)
-        
-        # 1. キロラップ
-        elapsed_km = (now_calc - last_time_obj).total_seconds()
-        
-        # 2. 区間ラップ
-        sec_start = get_section_start_time(df, next_section_num)
-        if sec_start:
-            elapsed_sec = (now_calc - sec_start).total_seconds()
-        else:
-            elapsed_sec = 0
-            
-        # 3. スプリット
-        elapsed_split = (now_calc - first_time_obj).total_seconds()
-
-        # JSコンポーネント呼び出し
-        show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
+        show_timer_panel(df, next_section_num, last_time_obj, first_time_obj)
 
         st.divider()
 
