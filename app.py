@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.1 date = 2026/01/08
+# version = 1.11 date = 2026/01/08
 # ==========================================
 
 import streamlit as st
@@ -21,6 +21,40 @@ JST = ZoneInfo("Asia/Tokyo")
 
 # ページ設定
 st.set_page_config(page_title="EKIDEN-計測", page_icon="🎽")
+
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# 【デザイン修正 1/3】 スマホ用CSS（スタイルシート）の注入
+# ボタンを巨大化し、余白を削るためのコードです
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+st.markdown("""
+    <style>
+    /* 全体の余白を詰めて画面を広く使う */
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 5rem; /* 下部は誤操作防止で少し空ける */
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    /* ボタン全体のデザイン（高さ確保・文字サイズ大） */
+    div.stButton > button {
+        height: 3.5em;
+        font-size: 20px;
+        font-weight: bold;
+        border-radius: 12px;
+        width: 100%;
+    }
+    /* ラップ計測ボタン（Primary）だけさらに目立たせる */
+    div.stButton > button[kind="primary"] {
+        background-color: #FF4B4B;
+        color: white;
+        height: 4.5em; /* メインボタンは特に大きく */
+        font-size: 24px;
+        margin-bottom: 10px; /* 下のボタンとの間隔 */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+# ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
 # タイトル表示
 st.title("🎽 EKIDEN-計測")
 
@@ -159,65 +193,59 @@ else:
 
         st.divider()
 
-        # === ボタンエリア（3列構成に変更） ===
-        # 左:ラップ(大), 中央:リレー, 右:フィニッシュ
-        c_lap, c_relay, c_Finish = st.columns([2, 1, 1])
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【デザイン修正 2/3】 ボタン配置の大幅変更
+        # 以前の「横並び3列」をやめ、ラップ計測ボタンを特大サイズで独立させます
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        
+        # 1. ラップ計測ボタン（画面幅いっぱいに独立）
+        # スマホで一番押しやすい位置に配置
+        if st.button(f"⏱️ {next_km}km ラップ", type="primary", use_container_width=True):
+            lap_sec = (now_obj - last_time_obj).total_seconds()
+            total_sec = (now_obj - first_time_obj).total_seconds()
+            new_row = pd.DataFrame([{
+                "区間": f"{next_section_num}区", "地点": f"{next_km}km",
+                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+            }])
+            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.toast(f"{next_km}km地点を記録！")
+            st.rerun()
 
-        # 1. ラップ計測
-        with c_lap:
-            if st.button(f"⏱️ {next_km}km ラップ", type="primary", use_container_width=True):
-                lap_sec = (now_obj - last_time_obj).total_seconds()
-                total_sec = (now_obj - first_time_obj).total_seconds()
-                
-                new_row = pd.DataFrame([{
-                    "区間": f"{next_section_num}区",
-                    "地点": f"{next_km}km",
-                    "時刻": get_time_str(now_obj),
-                    "ラップ": fmt_time(lap_sec),
-                    "スプリット": fmt_time(total_sec)
-                }])
-                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-                st.toast(f"{next_km}km地点を記録！")
-                st.rerun()
+        # 2. サブボタン（リレーとフィニッシュ）は横並び
+        # ラップボタンの下に配置し、押し間違いを防ぎます
+        c_relay, c_Finish = st.columns(2)
 
-        # 2. タスキリレー
         with c_relay:
-            if st.button(f"🎽 {next_section_num}区→{next_section_num+1}区", use_container_width=True):
+            if st.button(f"🎽 次へ ({next_section_num+1}区)", use_container_width=True):
                 lap_sec = (now_obj - last_time_obj).total_seconds()
                 total_sec = (now_obj - first_time_obj).total_seconds()
-                
                 new_row = pd.DataFrame([{
-                    "区間": f"{next_section_num}区",
-                    "地点": "Relay",
-                    "時刻": get_time_str(now_obj),
-                    "ラップ": fmt_time(lap_sec),
-                    "スプリット": fmt_time(total_sec)
+                    "区間": f"{next_section_num}区", "地点": "Relay",
+                    "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
                 }])
                 conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
                 st.success(f"{next_section_num+1}区へリレーしました！")
                 st.rerun()
         
-        # 3. フィニッシュボタン（今回の追加機能！）
         with c_Finish:
-            # 間違って押さないよう、少し警告色っぽい文言にする手もありますが、標準ボタンにします
             if st.button("🏆 Finish", use_container_width=True):
                 lap_sec = (now_obj - last_time_obj).total_seconds()
                 total_sec = (now_obj - first_time_obj).total_seconds()
-                
                 new_row = pd.DataFrame([{
-                    "区間": f"{next_section_num}区",
-                    "地点": "Finish",
-                    "時刻": get_time_str(now_obj),
-                    "ラップ": fmt_time(lap_sec),
-                    "スプリット": fmt_time(total_sec)
+                    "区間": f"{next_section_num}区", "地点": "Finish",
+                    "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
                 }])
                 conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
-                st.rerun() # これでパターン1（終了画面）へ切り替わります
+                st.rerun()
+        # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
-        # ログ表示
-        st.divider()
-        st.markdown("### 📊 計測ログ")
-        st.dataframe(df.iloc[::-1], use_container_width=True)
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【デザイン修正 3/3】 ログの折りたたみ（Expander）
+        # ログが増えてもボタンの位置が下がらないようにします
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        with st.expander("📊 計測ログを表示（タップして開閉）"):
+            st.dataframe(df.iloc[::-1], use_container_width=True)
+        # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
         
         # 途中リセット用
         with st.expander("管理メニュー"):

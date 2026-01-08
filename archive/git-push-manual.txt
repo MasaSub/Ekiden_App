@@ -1,3 +1,15 @@
+
+
+### PUSH-NORMAL ###
+
 git add .
 git commit -m " 微修正 "
 git push
+
+
+### PUSH-TAG ###
+
+git add .
+git commit -m " vx.x "
+git tag vx.x
+git push origin vx.x
