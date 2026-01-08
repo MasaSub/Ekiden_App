@@ -111,7 +111,7 @@ st.markdown(f"""
 # ==========================================
 def load_data(conn):
     #try:
-    df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=AUTO_RELOAD_SEC)
+    df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=CACHE_TTL_SEC)
     if not df.empty:
         cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split']
         for col in cols_to_str:
