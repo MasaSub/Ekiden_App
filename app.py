@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.3.3 date = 2026/01/09
+# version = 1.3.4 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -13,13 +13,13 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.3.3" ###更新毎に書き換え
+VERSION = "ver 1.3.4" ###更新毎に書き換え
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
 JST = ZoneInfo("Asia/Tokyo")
 AUTO_RELOAD_SEC = 10
-AUTO_REFRESH_INTERVAL_MS = 1000
+AUTO_REFRESH_INTERVAL_MS = 5000
 
 # ページ設定
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
@@ -244,7 +244,7 @@ else:
     else:
         last_time_obj = parse_time_str(last_row['Time'])
         first_time_obj = parse_time_str(df.iloc[0]['Time'])
-        now_obj = datetime.now(JST)
+            # now_for_record = datetime.now(JST)
 
         current_section_str = str(last_row['Section']) 
         try: current_section_num = int(current_section_str.replace("区", ""))
@@ -261,30 +261,52 @@ else:
             else: last_km = 0
             next_km = last_km + 1
 
-        # ------------------------------------------------
-        # 【修正】リアルタイム3大ラップ計算 (0.1秒対応 + 装飾)
-        # ------------------------------------------------
-        
-        # 1. キロラップ (KM-Lap)
-        diff_km = (now_obj - last_time_obj).total_seconds()
-        # fmt_time_lapで "mm:ss.f" にし、style_decimalでHTML装飾をつける
-        str_km_lap = style_decimal(fmt_time_lap(diff_km))
-
-        # 2. 区間ラップ (SEC-Lap)
-        section_start_obj = get_section_start_time(df, next_section_num)
-        if section_start_obj:
-            diff_sec = (now_obj - section_start_obj).total_seconds()
-        else:
-            diff_sec = 0
-        str_sec_lap = style_decimal(fmt_time_lap(diff_sec))
-
-        # 3. スプリット (Split)
-        diff_split = (now_obj - first_time_obj).total_seconds()
-        str_split = style_decimal(fmt_time(diff_split))
-
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【新機能】ヘッダー表示：「X区 Y ~ Y+1 km 走行中📣」
+        # 【新機能】ここだけ独立して高速更新するフラグメント
+        # run_every=0.1 で「0.1秒ごとにこの関数だけ再実行」します
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        @st.fragment(run_every=0.1)
+        def show_timer_panel(current_df, section_num, last_time, first_time):
+            # 現在時刻を取得（この関数が動くたびに更新される）
+            now_dynamic = datetime.now(JST)
+
+            # 1. キロラップ計算
+            diff_km = (now_dynamic - last_time).total_seconds()
+            str_km_lap = style_decimal(fmt_time_lap(diff_km))
+
+            # 2. 区間ラップ計算
+            sec_start = get_section_start_time(current_df, section_num)
+            if sec_start:
+                diff_sec = (now_dynamic - sec_start).total_seconds()
+            else:
+                diff_sec = 0
+            str_sec_lap = style_decimal(fmt_time_lap(diff_sec))
+
+            # 3. スプリット計算
+            diff_split = (now_dynamic - first_time).total_seconds()
+            str_split = fmt_time(diff_split) # スプリットは style_decimal しない
+
+            # パネル表示
+            st.markdown(f"""
+<div style="display: flex; justify-content: space-between; align-items: center; background-color: #262730; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;">
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">キロラップ</div>
+        <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_km_lap}</div>
+    </div>
+    <div style="width: 1px; height: 40px; background-color: #555;"></div>
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">区間ラップ</div>
+        <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_sec_lap}</div>
+    </div>
+    <div style="width: 1px; height: 40px; background-color: #555;"></div>
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">スタートから</div>
+        <div style="font-size: 20px; font-weight: bold; color: #ffffff; line-height: 1.3;">{str_split}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+        # ヘッダー表示
         if last_point in ["Start", "Relay"]:
             current_dist_val = 0
         elif "km" in last_point:
@@ -304,38 +326,25 @@ else:
                 st.rerun()
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【新機能】3分割情報パネル (KM-Lap / SEC-Lap / Split)
+        # フラグメント関数の実行（ここで時計が表示され、勝手に更新し続けます）
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        st.markdown(f"""
-<div style="display: flex; justify-content: space-between; align-items: center; background-color: #262730; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;">
-    <div style="text-align: center; flex: 1;">
-        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">キロラップ</div>
-        <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_km_lap}</div>
-    </div>
-    <div style="width: 1px; height: 40px; background-color: #555;"></div>
-    <div style="text-align: center; flex: 1;">
-        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">区間ラップ</div>
-        <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_sec_lap}</div>
-    </div>
-    <div style="width: 1px; height: 40px; background-color: #555;"></div>
-    <div style="text-align: center; flex: 1;">
-        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">スタートから</div>
-        <div style="font-size: 20px; font-weight: bold; color: #ffffff; line-height: 1.3;">{str_split}</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+        show_timer_panel(df, next_section_num, last_time_obj, first_time_obj)
 
         st.divider()
+
+        # ここから下のボタン処理（ラップ・中継・Finish）は
+        # now_for_record を再計算する必要があるので注意！
+        now_for_record = datetime.now(JST) # ボタン押下時点の時刻
 
         # 操作ボタン類
         # 1. ラップ計測
         if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
-            lap_sec = (now_obj - last_time_obj).total_seconds()
-            total_sec = (now_obj - first_time_obj).total_seconds()
+            lap_sec = (now_for_record - last_time_obj).total_seconds()
+            total_sec = (now_for_record - first_time_obj).total_seconds()
             # 【追加】区間ラップの計算
             section_start_obj = get_section_start_time(df, next_section_num)
             if section_start_obj:
-                section_lap_sec = (now_obj - section_start_obj).total_seconds()
+                section_lap_sec = (now_for_record - section_start_obj).total_seconds()
             else:
                 section_lap_sec = 0
             
@@ -343,7 +352,7 @@ else:
             new_row = pd.DataFrame([{
                 "Section": f"{next_section_num}区", 
                 "Location": f"{next_km}km",
-                "Time": get_time_str(now_obj), 
+                "Time": get_time_str(now_for_record), 
                 "KM-Lap": fmt_time_lap(lap_sec), 
                 "SEC-Lap": fmt_time_lap(section_lap_sec), 
                 "Split": fmt_time(total_sec)
@@ -355,12 +364,12 @@ else:
 
         # 2. 中継ボタン
         if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
-            lap_sec = (now_obj - last_time_obj).total_seconds()
-            total_sec = (now_obj - first_time_obj).total_seconds()
+            lap_sec = (now_for_record - last_time_obj).total_seconds()
+            total_sec = (now_for_record - first_time_obj).total_seconds()
             # 【追加】区間ラップの計算
             section_start_obj = get_section_start_time(df, next_section_num)
             if section_start_obj:
-                section_lap_sec = (now_obj - section_start_obj).total_seconds()
+                section_lap_sec = (now_for_record - section_start_obj).total_seconds()
             else:
                 section_lap_sec = 0
             
@@ -368,7 +377,7 @@ else:
             new_row = pd.DataFrame([{
                 "Section": f"{next_section_num}区", 
                 "Location": "Relay",
-                "Time": get_time_str(now_obj), 
+                "Time": get_time_str(now_for_record), 
                 "KM-Lap": fmt_time_lap(lap_sec), 
                 "SEC-Lap": fmt_time_lap(section_lap_sec), 
                 "Split": fmt_time(total_sec)
@@ -380,12 +389,12 @@ else:
         
         # 3. Finishボタン
         if st.button("🏆 Finish", use_container_width=True):
-            lap_sec = (now_obj - last_time_obj).total_seconds()
-            total_sec = (now_obj - first_time_obj).total_seconds()
+            lap_sec = (now_for_record - last_time_obj).total_seconds()
+            total_sec = (now_for_record - first_time_obj).total_seconds()
             # 【追加】区間ラップの計算
             section_start_obj = get_section_start_time(df, next_section_num)
             if section_start_obj:
-                section_lap_sec = (now_obj - section_start_obj).total_seconds()
+                section_lap_sec = (now_for_record - section_start_obj).total_seconds()
             else:
                 section_lap_sec = 0
             
@@ -393,7 +402,7 @@ else:
             new_row = pd.DataFrame([{
                 "Section": f"{next_section_num}区", 
                 "Location": "Finish",
-                "Time": get_time_str(now_obj), 
+                "Time": get_time_str(now_for_record), 
                 "KM-Lap": fmt_time_lap(lap_sec), 
                 "SEC-Lap": fmt_time_lap(section_lap_sec), 
                 "Split": fmt_time(total_sec)
