@@ -20,7 +20,7 @@ JST = ZoneInfo("Asia/Tokyo")
 AUTO_RELOAD_SEC = 10
 
 # ページ設定
-st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽")
+st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
 
 # ==========================================
 # CSSデザイン定義
@@ -95,12 +95,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# タイトル（中央揃え・カスタムHTML）
-st.markdown("""
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# 【修正】タイトル（バージョン情報付き）
+# ユーザー指定のデザインに変更しました
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+st.markdown(f"""
     <h2 style='text-align: center; font-size: 24px; margin-bottom: 2px;'>
         🎽 駅伝けいそくん
-    <h2>
-    <div style="text-align: center; font-size: 12px; color: #888; margin-top: 20px;">
+    </h2>
+    <div style="text-align: center; font-size: 12px; color: #888; margin-bottom: 20px;">
         {VERSION}
     </div>
 """, unsafe_allow_html=True)
