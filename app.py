@@ -291,6 +291,6 @@ else:
         # Pythonを止めることなく、ブラウザ側から10秒ごとに更新をかけます
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         if auto_reload:
-            st_autorefresh(interval=AUTO_RELOAD_SEC*10, key="datarefresh")
+            st_autorefresh(interval=AUTO_RELOAD_SEC*100, key="datarefresh")
             # interval=10000 は 10,000ミリ秒 = 10秒 です
             # このコンポーネントを置くだけで勝手に更新されます（st.rerun不要）
