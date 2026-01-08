@@ -134,6 +134,20 @@ def fmt_time(sec):
     h, m = divmod(m, 60)
     return f"{h:02}:{m:02}:{s:02}"
 
+def get_section_start_time(df, section_num):
+    """指定した区間の開始時刻（前区間のRelay、またはStart）を取得"""
+    if section_num == 1:
+        # 1区ならStartの時刻
+        row = df[df['Location'] == 'Start']
+    else:
+        # 2区以降なら、前の区間(section_num-1)のRelay時刻
+        prev_section = f"{section_num - 1}区"
+        row = df[(df['Section'] == prev_section) & (df['Location'] == 'Relay')]
+    
+    if not row.empty:
+        return parse_time_str(row.iloc[0]['Time'])
+    return None
+
 # ==========================================
 # メイン処理
 # ==========================================
@@ -148,8 +162,12 @@ if df.empty or len(df) == 0:
     if st.button("🔫 レーススタート (1区)", type="primary", use_container_width=True):
         now = datetime.now(JST)
         start_data = pd.DataFrame([{
-            "区間": "1区", "地点": "Start", "時刻": get_time_str(now),
-            "ラップ": "00:00:00", "スプリット": "00:00:00"
+            "Section": "1区", 
+            "Location": "Start", 
+            "Time": get_time_str(now),
+            "KM-Lap": "00:00:00", 
+            "SEC-Lap": "00:00:00", 
+            "Split": "00:00:00"
         }])
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
         
@@ -179,15 +197,15 @@ if df.empty or len(df) == 0:
 # --- B. レース進行中 or 終了後 ---
 else:
     last_row = df.iloc[-1]
-    last_point = str(last_row['地点'])
+    last_point = str(last_row['Location'])
     
     # 1. フィニッシュ済み
     if last_point == "Finish":
             # st.balloons()
         st.success("🏆 競技終了！お疲れ様でした！")
         
-        st.metric("🏁 フィニッシュ時刻", last_row['時刻'])
-        st.metric("⏱️ 最終タイム", last_row['スプリット'])
+        st.metric("🏁 フィニッシュ時刻", last_row['Time'])
+        st.metric("⏱️ 最終タイム", last_row['Split'])
         
         st.divider()
         st.markdown("### 📊 最終リザルト")
@@ -210,11 +228,11 @@ else:
     
     # 2. レース中
     else:
-        last_time_obj = parse_time_str(last_row['時刻'])
-        first_time_obj = parse_time_str(df.iloc[0]['時刻'])
+        last_time_obj = parse_time_str(last_row['Time'])
+        first_time_obj = parse_time_str(df.iloc[0]['Time'])
         now_obj = datetime.now(JST)
 
-        current_section_str = str(last_row['区間']) 
+        current_section_str = str(last_row['Section']) 
         try: current_section_num = int(current_section_str.replace("区", ""))
         except: current_section_num = 1
 
@@ -260,7 +278,7 @@ else:
             </div>
             <div style="text-align: center; flex: 1; border-left: 1px solid #555; border-right: 1px solid #555;">
                 <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">通過時刻</div>
-                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_row['時刻'][:-3]}<span style="font-size: 14px;">{last_row['時刻'][-3:]}</span></div>
+                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_row['Time'][:-3]}<span style="font-size: 14px;">{last_row['Time'][-3:]}</span></div>
             </div>
             <div style="text-align: center; flex: 1;">
                 <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">現在の経過</div>
@@ -276,9 +294,21 @@ else:
         if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
             lap_sec = (now_obj - last_time_obj).total_seconds()
             total_sec = (now_obj - first_time_obj).total_seconds()
+            # 【追加】区間ラップの計算
+            section_start_obj = get_section_start_time(df, next_section_num)
+            if section_start_obj:
+                section_lap_sec = (now_obj - section_start_obj).total_seconds()
+            else:
+                section_lap_sec = 0
+            
+            # 保存データ作成（英語列名）
             new_row = pd.DataFrame([{
-                "区間": f"{next_section_num}区", "地点": f"{next_km}km",
-                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+                "Section": f"{next_section_num}区", 
+                "Location": f"{next_km}km",
+                "Time": get_time_str(now_obj), 
+                "KM-Lap": fmt_time(lap_sec), 
+                "SEC-Lap": fmt_time(section_lap_sec), 
+                "Split": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
             st.cache_data.clear() # 即クリア
@@ -289,9 +319,21 @@ else:
         if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
             lap_sec = (now_obj - last_time_obj).total_seconds()
             total_sec = (now_obj - first_time_obj).total_seconds()
+            # 【追加】区間ラップの計算
+            section_start_obj = get_section_start_time(df, next_section_num)
+            if section_start_obj:
+                section_lap_sec = (now_obj - section_start_obj).total_seconds()
+            else:
+                section_lap_sec = 0
+            
+            # 保存データ作成（英語列名）
             new_row = pd.DataFrame([{
-                "区間": f"{next_section_num}区", "地点": "Relay",
-                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+                "Section": f"{next_section_num}区", 
+                "Location": "Relay",
+                "Time": get_time_str(now_obj), 
+                "KM-Lap": fmt_time(lap_sec), 
+                "SEC-Lap": fmt_time(section_lap_sec), 
+                "Split": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
             st.cache_data.clear() # 即クリア
@@ -302,9 +344,21 @@ else:
         if st.button("🏆 Finish", use_container_width=True):
             lap_sec = (now_obj - last_time_obj).total_seconds()
             total_sec = (now_obj - first_time_obj).total_seconds()
+            # 【追加】区間ラップの計算
+            section_start_obj = get_section_start_time(df, next_section_num)
+            if section_start_obj:
+                section_lap_sec = (now_obj - section_start_obj).total_seconds()
+            else:
+                section_lap_sec = 0
+            
+            # 保存データ作成（英語列名）
             new_row = pd.DataFrame([{
-                "区間": f"{next_section_num}区", "地点": "Finish",
-                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+                "Section": f"{next_section_num}区", 
+                "Location": "Finish",
+                "Time": get_time_str(now_obj), 
+                "KM-Lap": fmt_time(lap_sec), 
+                "SEC-Lap": fmt_time(section_lap_sec), 
+                "Split": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
             st.cache_data.clear() # 即クリア
