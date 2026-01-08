@@ -30,7 +30,7 @@ st.markdown("""
     <style>
     /* 全体の余白を詰めて画面を広く使う */
     .block-container {
-        padding-top: 0.5rem;
+        padding-top: 1.0rem;
         padding-bottom: 5rem; /* 下部は誤操作防止で少し空ける */
         padding-left: 0.5rem;
         padding-right: 0.5rem;
@@ -200,7 +200,7 @@ else:
                 border-radius: 8px; 
                 font-size: 14px;
                 border: 1px solid #555;">
-                🔄 更新
+                更新
             </a>
         </div>
 
