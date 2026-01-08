@@ -207,12 +207,12 @@ else:
         
         with c_title:
             # タイトル表示
-            st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中！ 📣")
+            st.markdown(f"### 🏃‍♂️ {next_section_num}区")
             
         with c_btn:
             # Pythonのボタン機能を使うのでエラーは起きません
             # アイコンのみにしてスペース節約
-            if st.button("♻️", help="更新", use_container_width=True):
+            if st.button("♻️ 更新", help="更新", use_container_width=True):
                 st.rerun()
 
         # HTMLパネル（ここは変更なし）
