@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.3.2 date = 2026/01/09
+# version = 1.3.3 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -12,12 +12,13 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.3.2" ###更新毎に書き換え
+VERSION = "ver 1.3.3" ###更新毎に書き換え
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
 JST = ZoneInfo("Asia/Tokyo")
 AUTO_RELOAD_SEC = 10
+AUTO_REFRESH_INTERVAL_MS = 700
 
 # ページ設定
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
@@ -115,25 +116,43 @@ def load_data(conn):
         return pd.DataFrame()
 
 def get_time_str(dt):
-    return dt.strftime("%H:%M:%S")
+    return dt.strftime("%H:%M:%S.%f")[:10]
 
 def parse_time_str(time_str):
     now = datetime.now(JST)
     try:
-        t = datetime.strptime(time_str, "%H:%M:%S").time()
+        # 0.1秒単位(.X)の場合、後ろに0を5つ足して(.X00000) datetimeに読み込ませる
+        if "." in time_str:
+            # 文字列操作でマイクロ秒6桁に合わせる簡易的な処理
+            t = datetime.strptime(time_str + "00000", "%H:%M:%S.%f").time()
+        else:
+            t = datetime.strptime(time_str, "%H:%M:%S").time()
         return datetime.combine(now.date(), t).replace(tzinfo=JST)
     except:
         return now
-    
-def fmt_time(sec):
-    m, s = divmod(int(sec), 60)
-    h, m = divmod(m, 60)
-    return f"{h:02}:{m:02}:{s:02}"
 
-# 【追加】ラップ用 (mm:ss)
+# HTML装飾用ヘルパー関数： ".X" の部分を小さく薄くするHTMLタグを付与
+def style_decimal(time_str):
+    if "." in time_str:
+        main, dec = time_str.split(".")
+        return f'{main}<span style="font-size: 0.6em; opacity: 0.7;">.{dec}</span>'
+    return time_str    
+
+def fmt_time(sec):
+    total_tenths = int(sec * 10)
+    rem_tenths = total_tenths % 10
+    total_sec = total_tenths // 10
+    m, s = divmod(total_sec, 60)
+    h, m = divmod(m, 60)
+    return f"{h:02}:{m:02}:{s:02}.{rem_tenths}"
+
+# ラップ用 (mm:ss.f)
 def fmt_time_lap(sec):
-    m, s = divmod(int(sec), 60)
-    return f"{m:02}:{s:02}"
+    total_tenths = int(sec * 10)
+    rem_tenths = total_tenths % 10
+    total_sec = total_tenths // 10
+    m, s = divmod(total_sec, 60)
+    return f"{m:02}:{s:02}.{rem_tenths}"
 
 def get_section_start_time(df, section_num):
     """指定した区間の開始時刻（前区間のRelay、またはStart）を取得"""
@@ -182,7 +201,7 @@ if df.empty or len(df) == 0:
         auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
     
     if auto_reload_start:
-        st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="refresh_start")
+        st_autorefresh(interval=AUTO_RELOAD_SEC*15, key="refresh_start")
 
 
 # --- B. レース進行中 or 終了後 ---
@@ -215,7 +234,7 @@ else:
                 st.rerun()
             
         if auto_reload_finish:
-            st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="refresh_finish")
+            st_autorefresh(interval=AUTO_REFRESH_INTERVAL_MS*40, key="refresh_finish")
     
     # 2. レース中
     else:
@@ -238,25 +257,26 @@ else:
             else: last_km = 0
             next_km = last_km + 1
 
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【新機能】リアルタイム3大ラップ計算
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # ------------------------------------------------
+        # 【修正】リアルタイム3大ラップ計算 (0.1秒対応 + 装飾)
+        # ------------------------------------------------
         
-        # 1. キロラップ (KM-Lap): mm:ss
+        # 1. キロラップ (KM-Lap)
         diff_km = (now_obj - last_time_obj).total_seconds()
-        str_km_lap = fmt_time_lap(diff_km) # mm:ss
+        # fmt_time_lapで "mm:ss.f" にし、style_decimalでHTML装飾をつける
+        str_km_lap = style_decimal(fmt_time_lap(diff_km))
 
-        # 2. 区間ラップ (SEC-Lap): mm:ss
+        # 2. 区間ラップ (SEC-Lap)
         section_start_obj = get_section_start_time(df, next_section_num)
         if section_start_obj:
             diff_sec = (now_obj - section_start_obj).total_seconds()
         else:
             diff_sec = 0
-        str_sec_lap = fmt_time_lap(diff_sec) # mm:ss
+        str_sec_lap = style_decimal(fmt_time_lap(diff_sec))
 
-        # 3. スプリット (Split): h:mm:ss
+        # 3. スプリット (Split)
         diff_split = (now_obj - first_time_obj).total_seconds()
-        str_split = fmt_time(diff_split) # h:mm:ss
+        str_split = style_decimal(fmt_time(diff_split))
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         # 【新機能】ヘッダー表示：「X区 Y ~ Y+1 km 走行中📣」
@@ -320,8 +340,8 @@ else:
                 "Section": f"{next_section_num}区", 
                 "Location": f"{next_km}km",
                 "Time": get_time_str(now_obj), 
-                "KM-Lap": fmt_time(lap_sec), 
-                "SEC-Lap": fmt_time(section_lap_sec), 
+                "KM-Lap": fmt_time_lap(lap_sec), 
+                "SEC-Lap": fmt_time_lap(section_lap_sec), 
                 "Split": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
@@ -345,8 +365,8 @@ else:
                 "Section": f"{next_section_num}区", 
                 "Location": "Relay",
                 "Time": get_time_str(now_obj), 
-                "KM-Lap": fmt_time(lap_sec), 
-                "SEC-Lap": fmt_time(section_lap_sec), 
+                "KM-Lap": fmt_time_lap(lap_sec), 
+                "SEC-Lap": fmt_time_lap(section_lap_sec), 
                 "Split": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
@@ -370,8 +390,8 @@ else:
                 "Section": f"{next_section_num}区", 
                 "Location": "Finish",
                 "Time": get_time_str(now_obj), 
-                "KM-Lap": fmt_time(lap_sec), 
-                "SEC-Lap": fmt_time(section_lap_sec), 
+                "KM-Lap": fmt_time_lap(lap_sec), 
+                "SEC-Lap": fmt_time_lap(section_lap_sec), 
                 "Split": fmt_time(total_sec)
             }])
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
@@ -395,7 +415,7 @@ else:
                 st.rerun()
         
         if auto_reload:
-            st_autorefresh(interval=AUTO_RELOAD_SEC*100, key="datarefresh")
+            st_autorefresh(interval=AUTO_REFRESH_INTERVAL_MS, key="datarefresh")
             # interval=10000 は 10,000ミリ秒 = 10秒 です
             # このコンポーネントを置くだけで勝手に更新されます（st.rerun不要）
 

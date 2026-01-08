@@ -3,7 +3,7 @@
 ### PUSH-NORMAL ###
 
 git add .
-git commit -m " 微修正 "
+git commit -m " デバッグ "
 git push
 
 
