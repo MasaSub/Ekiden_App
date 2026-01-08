@@ -247,42 +247,74 @@ else:
             else: last_km = 0
             next_km = last_km + 1
 
-        elapsed_since_last = now_obj - last_time_obj
-        mins, secs = divmod(elapsed_since_last.seconds, 60)
-        elapsed_str = f"{mins:02}:{secs:02}"
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【新機能】リアルタイム3大ラップ計算
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        
+        # 1. キロラップ (KM-Lap): 前回の記録からの経過時間
+        diff_km = (now_obj - last_time_obj).total_seconds()
+        str_km_lap = fmt_time(diff_km) # mm:ss
 
-        # ヘッダー（区間表示＋更新ボタン）
+        # 2. 区間ラップ (SEC-Lap): 現在走っている区間の開始からの経過時間
+        section_start_obj = get_section_start_time(df, next_section_num)
+        if section_start_obj:
+            diff_sec = (now_obj - section_start_obj).total_seconds()
+        else:
+            diff_sec = 0
+        str_sec_lap = fmt_time(diff_sec) # mm:ss
+
+        # 3. スプリット (Split): レース開始からの総経過時間
+        diff_split = (now_obj - first_time_obj).total_seconds()
+        # h:mm:ss 表記にするため自作フォーマット
+        h_split, rem = divmod(int(diff_split), 3600)
+        m_split, s_split = divmod(rem, 60)
+        str_split = f"{h_split}:{m_split:02}:{s_split:02}"
+
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【新機能】ヘッダー表示：「X区 YYY済み」
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        if last_point == "Start":
+            header_status = "Start済み"
+        elif last_point == "Relay":
+            header_status = "Relay済み"
+        else:
+            header_status = f"{last_point}通過済み"
+        
+        header_text = f"{current_section_str} {header_status}"
+
         c_title, c_btn = st.columns([1, 1])
         with c_title:
-            st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
+            st.markdown(f"### 🏃‍♂️ {header_text}")
         with c_btn:
             if st.button("🔄", help="更新"):
-                st.cache_data.clear() # 即クリア
+                st.cache_data.clear()
                 st.rerun()
 
-        # 情報パネル
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【新機能】3分割情報パネル (KM-Lap / SEC-Lap / Split)
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         st.markdown(f"""
         <div style="
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            background-color: #262730;
-            padding: 12px; 
-            border-radius: 10px; 
-            margin-bottom: 8px;
-            border: 1px solid #444;
+            display: flex; justify-content: space-between; align-items: center;
+            background-color: #262730; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;
         ">
             <div style="text-align: center; flex: 1;">
-                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">前の通過</div>
-                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_point}</div>
+                <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">キロラップ</div>
+                <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_km_lap}</div>
             </div>
-            <div style="text-align: center; flex: 1; border-left: 1px solid #555; border-right: 1px solid #555;">
-                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">通過時刻</div>
-                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_row['Time'][:-3]}<span style="font-size: 14px;">{last_row['Time'][-3:]}</span></div>
-            </div>
+            
+            <div style="width: 1px; height: 40px; background-color: #555;"></div>
+
             <div style="text-align: center; flex: 1;">
-                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">現在の経過</div>
-                <div style="font-size: 26px; font-weight: bold; color: #FF4B4B; line-height: 1.0;">{elapsed_str}</div>
+                <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">区間ラップ</div>
+                <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_sec_lap}</div>
+            </div>
+
+            <div style="width: 1px; height: 40px; background-color: #555;"></div>
+
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">スタートから</div>
+                <div style="font-size: 20px; font-weight: bold; color: #ffffff; line-height: 1.3;">{str_split}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
