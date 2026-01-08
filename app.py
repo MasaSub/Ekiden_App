@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.4.0 date = 2026/01/09
+# version = 1.3.99 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -14,7 +14,7 @@ import streamlit.components.v1 as components # JavaScript埋め込み用
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.4.0"
+VERSION = "ver 1.3.99"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
@@ -110,14 +110,18 @@ st.markdown(f"""
 # 関数定義
 # ==========================================
 def load_data(conn):
-    # デバッグ用にtry-exceptを外している場合はこのまま運用
-    df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=CACHE_TTL_SEC)
-    if not df.empty:
-        cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split']
-        for col in cols_to_str:
-            if col in df.columns:
-                df[col] = df[col].astype(str)
-    return df
+    try:
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=CACHE_TTL_SEC)
+        if not df.empty:
+            cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split']
+            for col in cols_to_str:
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
+        return df
+    except Exception as e:
+        # エラー時はメッセージを出して空のDFを返す
+        st.error(f"通信エラー（再接続中...）: {e}")
+        return pd.DataFrame()
 
 # 時刻保存用 (HH:MM:SS.f)
 def get_time_str(dt):
@@ -422,15 +426,18 @@ else:
                 section_start_obj = get_section_start_time(current_df, next_section_num)
                 section_lap_sec = (now_for_record - section_start_obj).total_seconds() if section_start_obj else 0
                 
-                new_row = pd.DataFrame([{
-                    "Section": f"{next_section_num}区", 
-                    "Location": loc_text,
-                    "Time": get_time_str(now_for_record), 
-                    "KM-Lap": fmt_time_lap(lap_sec), 
-                    "SEC-Lap": fmt_time_lap(section_lap_sec), 
-                    "Split": fmt_time(total_sec)
-                }])
-                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([current_df, new_row]))
+                # --- 新コード (append_rowによる追記保存) ---
+                values = [
+                    f"{next_section_num}区",
+                    loc_text,
+                    get_time_str(now_for_record),
+                    fmt_time_lap(lap_sec),
+                    fmt_time_lap(section_lap_sec),
+                    fmt_time(total_sec)
+                ]
+                # gspreadの機能で追記
+                conn.client.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME).append_row(values, value_input_option='USER_ENTERED')
+                
                 st.cache_data.clear()
                 # ボタンを押したときはアプリ全体をリロードして確定させる
                 st.rerun()
@@ -442,12 +449,43 @@ else:
             if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
                 save_record("Relay")
                 st.success("リレーしました！")
-
-            if st.button("🏆 Finish", use_container_width=True):
-                save_record("Finish")
         
         # Fragmentの実行
         show_race_dashboard()
+
+        if st.button("🏆 Finish", use_container_width=True):
+             # 押下時の時刻
+            now_for_record = datetime.now(JST)
+            # 現在のデータ(df)を使って計算（Fragment外なのでload_data済みのdfを使用）
+            last_row = df.iloc[-1]
+            last_time_obj = parse_time_str(last_row['Time'])
+            first_time_obj = parse_time_str(df.iloc[0]['Time'])
+            
+            # 次の区間等の再計算
+            current_section_str = str(last_row['Section']) 
+            try: current_section_num = int(current_section_str.replace("区", ""))
+            except: current_section_num = 1
+            if str(last_row['Location']) == "Relay":
+                next_section_num = current_section_num + 1
+            else:
+                next_section_num = current_section_num
+
+            lap_sec = (now_for_record - last_time_obj).total_seconds()
+            total_sec = (now_for_record - first_time_obj).total_seconds()
+            section_start_obj = get_section_start_time(df, next_section_num)
+            section_lap_sec = (now_for_record - section_start_obj).total_seconds() if section_start_obj else 0
+
+            values = [
+                f"{next_section_num}区",
+                "Finish",
+                get_time_str(now_for_record),
+                fmt_time_lap(lap_sec),
+                fmt_time_lap(section_lap_sec),
+                fmt_time(total_sec)
+            ]
+            conn.client.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME).append_row(values, value_input_option='USER_ENTERED')
+            st.cache_data.clear()
+            st.rerun()
 
         # ログ表示
         st.divider()
