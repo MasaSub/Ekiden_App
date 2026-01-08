@@ -18,7 +18,7 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6e
 WORKSHEET_NAME = "log"
 JST = ZoneInfo("Asia/Tokyo")
 AUTO_RELOAD_SEC = 10
-AUTO_REFRESH_INTERVAL_MS = 700
+AUTO_REFRESH_INTERVAL_MS = 100
 
 # ページ設定
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
@@ -138,13 +138,11 @@ def style_decimal(time_str):
         return f'{main}<span style="font-size: 0.6em; opacity: 0.7;">.{dec}</span>'
     return time_str    
 
+# スプリット用 (h:mm:ss) ※0.1秒なし
 def fmt_time(sec):
-    total_tenths = int(sec * 10)
-    rem_tenths = total_tenths % 10
-    total_sec = total_tenths // 10
-    m, s = divmod(total_sec, 60)
+    m, s = divmod(int(sec), 60)
     h, m = divmod(m, 60)
-    return f"{h:02}:{m:02}:{s:02}.{rem_tenths}"
+    return f"{h:02}:{m:02}:{s:02}"
 
 # ラップ用 (mm:ss.f)
 def fmt_time_lap(sec):
@@ -187,7 +185,7 @@ if df.empty or len(df) == 0:
             "Time": get_time_str(now),
             "KM-Lap": "00:00:00.0", 
             "SEC-Lap": "00:00:00.0", 
-            "Split": "00:00:00.0"
+            "Split": "0:00:00"
         }])
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
         st.cache_data.clear()
@@ -201,7 +199,7 @@ if df.empty or len(df) == 0:
         auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
     
     if auto_reload_start:
-        st_autorefresh(interval=AUTO_RELOAD_SEC*15, key="refresh_start")
+        st_autorefresh(interval=AUTO_RELOAD_SEC*100, key="refresh_start")
 
 
 # --- B. レース進行中 or 終了後 ---
@@ -234,7 +232,7 @@ else:
                 st.rerun()
             
         if auto_reload_finish:
-            st_autorefresh(interval=AUTO_REFRESH_INTERVAL_MS*40, key="refresh_finish")
+            st_autorefresh(interval=AUTO_REFRESH_INTERVAL_MS*300, key="refresh_finish")
     
     # 2. レース中
     else:
