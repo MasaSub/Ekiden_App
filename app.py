@@ -173,7 +173,7 @@ if df.empty or len(df) == 0:
     if auto_reload_start:
         # ここだけ * 200 (2000ms = 2秒) に設定します
         # 処理が軽すぎるため、1秒だと速すぎてメニューが表示されなくなるのを防ぎます
-        st_autorefresh(interval=AUTO_RELOAD_SEC*200, key="refresh_start")
+        st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="refresh_start")
 
 
 # --- B. レース進行中 or 終了後 ---
@@ -194,11 +194,20 @@ else:
         st.dataframe(df, use_container_width=True)
         
         with st.expander("管理メニュー"):
+            st.write("設定")
+            # デフォルトをONにする仕様
+            auto_reload = st.toggle("🔄 自動更新", value=True)
+            
+            st.divider()
+
             if st.button("⚠️ データ全消去（次のレースへ）"):
                 conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
                 st.cache_data.clear() # 即クリア
                 st.rerun()
-
+            
+        if auto_reload:
+            st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="datarefresh")
+    
     # 2. レース中
     else:
         last_time_obj = parse_time_str(last_row['時刻'])
