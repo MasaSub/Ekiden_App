@@ -28,6 +28,10 @@ st.set_page_config(page_title="EKIDEN-計測", page_icon="🎽")
 # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
 st.markdown("""
     <style>
+    /* 画面からはみ出さないようにする */
+    .stApp {
+        overflow-x: hidden;
+    }
     /* 全体の余白を詰めて画面を広く使う */
     .block-container {
         padding-top: 1.5rem;
@@ -39,22 +43,31 @@ st.markdown("""
     /* 【重要】スマホでもカラムを縦積みにせず、無理やり横に並べる設定 */
     div[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
-        gap: 0.5rem !important; /* ボタンと文字の間隔 */
+        gap: 0px !important; /* ボタンと文字の間隔 */
+        align-items: center !important;
     }
     div[data-testid="column"] {
-        min-width: 0 !important; /* これがないと幅確保で折り返されてしまう */
+        min-width: 0px !important; /* これがないと幅確保で折り返されてしまう */
+        padding: 0px !important;
         flex: 1 !important;      /* 均等伸縮 */
+    }
+    
+    /* 更新ボタン（2列目）の幅を「ボタンの中身」に合わせる */
+    div[data-testid="column"]:nth-of-type(2) {
+        flex: 0 0 auto !important; /* 自動で広がるのを防ぐ */
+        width: auto !important;
     }
             
     /* 通常ボタン（更新・次へ・Finishなど） */
     div.stButton > button {
-        height: 2.5em;           /* 3.5emから縮小（スリムに） */
-        font-size: 18px;         /* 文字も少し控えめに */
+        height: 2.8em;           /* 3.5emから縮小（スリムに） */
+        font-size: 16px;         /* 文字も少し控えめに */
         font-weight: bold;
-        border-radius: 10px;
+        border-radius: 8px;
         width: 100%;
-        margin-top: 0px;
-        margin-bottom: 0px;
+        margin: 0px;
+        padding: 0px 10px;
+        width: 100%;
     }
     
     /* ラップ計測ボタン（Primary）だけは少し大きく残す */
@@ -63,6 +76,7 @@ st.markdown("""
         color: white;
         height: 4.0em;
         font-size: 36px;
+        padding: 0px;
     }
     
     /* タイトルの余白を詰める */
@@ -70,8 +84,7 @@ st.markdown("""
         padding: 0px;
         margin: 0px;
         white-space: nowrap; /* 文字が長くても折り返さない */
-        font-size: 1.5rem !important;
-        line-height: 1.5 !important;
+        font-size: 1.4rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -203,7 +216,7 @@ else:
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         
         # 比率を [5, 1] くらいにして、ボタンを右端に小さく置きます
-        c_title, c_btn = st.columns([5, 1])
+        c_title, c_btn = st.columns([3, 1])
         
         with c_title:
             # タイトル表示
