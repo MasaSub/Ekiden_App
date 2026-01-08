@@ -102,6 +102,12 @@ st.markdown("""
     </h2>
 """, unsafe_allow_html=True)
 
+st.markdown(f"""
+    <div style="text-align: center; font-size: 12px; color: #888; margin-top: 20px;">
+        {VERSION}
+    </div>
+    """, unsafe_allow_html=True)
+
 # ==========================================
 # 関数定義
 # ==========================================
@@ -306,12 +312,3 @@ else:
             # interval=10000 は 10,000ミリ秒 = 10秒 です
             # このコンポーネントを置くだけで勝手に更新されます（st.rerun不要）
 
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-# 【追加】フッター（バージョン情報）
-# どの状態でも画面の最下部に小さく表示されます
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-st.markdown(f"""
-    <div style="text-align: center; font-size: 12px; color: #888; margin-top: 20px;">
-        {VERSION}
-    </div>
-    """, unsafe_allow_html=True)
