@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.3.1 date = 2026/01/08
+# version = 1.3.2 date = 2026/01/08
 # ==========================================
 
 import streamlit as st
@@ -12,7 +12,7 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.3.1" ###更新毎に書き換え
+VERSION = "ver 1.3.2" ###更新毎に書き換え
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
 WORKSHEET_NAME = "log"
