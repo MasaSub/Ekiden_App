@@ -16,6 +16,8 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6e
 WORKSHEET_NAME = "log"
 JST = ZoneInfo("Asia/Tokyo")
 
+AUTO_RELOAD_SEC = 10
+
 # ページ設定
 st.set_page_config(page_title="EKIDEN-計測", page_icon="🎽")
 
@@ -104,7 +106,7 @@ st.markdown("""
 # ==========================================
 def load_data(conn):
     try:
-        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=0)
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=AUTO_RELOAD_SEC)
         return df
     except Exception as e:
         return pd.DataFrame()
@@ -275,7 +277,7 @@ else:
         # 管理メニュー（自動更新機能の追加）
         with st.expander("管理メニュー"):
             st.write("設定")
-            # デフォルトはOFFにしておき、必要な時だけONにする仕様
+            # デフォルトをONにする仕様
             auto_reload = st.toggle("🔄 自動更新", value=True)
             
             st.divider()
@@ -289,6 +291,6 @@ else:
         # Pythonを止めることなく、ブラウザ側から10秒ごとに更新をかけます
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         if auto_reload:
-            st_autorefresh(interval=2000, key="datarefresh")
+            st_autorefresh(interval=AUTO_RELOAD_SEC*100, key="datarefresh")
             # interval=10000 は 10,000ミリ秒 = 10秒 です
             # このコンポーネントを置くだけで勝手に更新されます（st.rerun不要）
