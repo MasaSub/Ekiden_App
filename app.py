@@ -43,6 +43,10 @@ st.markdown("""
         border-radius: 12px;
         width: 100%;
     }
+    /* 修正後（スマホ向けに少し控えめなサイズにする） */
+    div[data-testid="stMetricValue"] {
+        font-size: 20px;
+    }
     /* ラップ計測ボタン（Primary）だけさらに目立たせる */
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B;
@@ -178,18 +182,40 @@ else:
 
         st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
 
-        # 状況パネル
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("前の通過", f"{last_point}")
-        with col2:
-            st.metric("通過時刻", last_row['時刻'])
-        with col3:
-            st.metric("⏱️ 現在の経過", elapsed_str)
-            st.caption("※リロードで更新")
-
-        if st.button("🔄 最新情報を取得"):
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【修正】強制横並びパネル (HTML)
+        # 3つの情報を横一列に並べて、縦のスペースを大幅に節約します
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        st.markdown(f"""
+        <div style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            background-color: #262730; /* 背景色（ダークモードに馴染む色） */
+            padding: 10px; 
+            border-radius: 10px; 
+            margin-bottom: 10px;
+            border: 1px solid #444;
+        ">
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 10px; color: #aaa;">前の通過</div>
+                <div style="font-size: 16px; font-weight: bold; color: white;">{last_point}</div>
+            </div>
+            <div style="text-align: center; flex: 1; border-left: 1px solid #555; border-right: 1px solid #555;">
+                <div style="font-size: 10px; color: #aaa;">通過時刻</div>
+                <div style="font-size: 16px; font-weight: bold; color: white;">{last_row['時刻']}</div>
+            </div>
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 10px; color: #aaa;">現在の経過</div>
+                <div style="font-size: 18px; font-weight: bold; color: #FF4B4B;">{elapsed_str}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 更新ボタン（場所を取らないように小さく配置）
+        if st.button("🔄 画面を更新", use_container_width=True):
             st.rerun()
+        # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         st.divider()
 
