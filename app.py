@@ -42,26 +42,28 @@ st.markdown("""
             
     /* 【重要】スマホでもカラムを縦積みにせず、無理やり横に並べる設定 */
     div[data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        gap: 5px !important; /* ボタンと文字の間隔 */
+        display: grid !important;
+        grid-template-columns: 1fr auto !important; /* 左は可変、右は自動(最小) */
+        gap: 10px !important;
         align-items: center !important;
     }
     div[data-testid="column"] {
-        min-width: 0px !important; /* これがないと幅確保で折り返されてしまう */
-        padding: 0px !important;
+        width: auto !important;
+        min-width: 0 !important;
+        flex: none !important;
     }
             
-    /* 左のカラム（タイトル）：余った幅を全部使う */
-    div[data-testid="column"]:nth-of-type(1) {
-        flex: 1 1 auto !important; 
-        width: auto !important;
-    }
-    
-    /* 更新ボタン（2列目）の幅を「ボタンの中身」に合わせる */
-    div[data-testid="column"]:nth-of-type(2) {
-        flex: 0 0 auto !important; /* 自動で広がるのを防ぐ */
-        width: auto !important;
-    }
+            /* 左のカラム（タイトル）：余った幅を全部使う
+            div[data-testid="column"]:nth-of-type(1) {
+                flex: 1 1 auto !important; 
+                width: auto !important;
+            }
+            
+            /* 更新ボタン（2列目）の幅を「ボタンの中身」に合わせる */
+            div[data-testid="column"]:nth-of-type(2) {
+                flex: 0 0 auto !important; /* 自動で広がるのを防ぐ */
+                width: auto !important;
+            } */
             
     /* 通常ボタン（更新・次へ・Finishなど） */
     div.stButton > button {
@@ -70,7 +72,7 @@ st.markdown("""
         font-weight: bold;
         border-radius: 8px;
         margin: 0px;
-        padding: 0px 15px;
+        padding: 0px 12px;
         white-space: nowrap; /* ボタン内の文字も折り返さない */
     }
     
@@ -80,7 +82,6 @@ st.markdown("""
         color: white;
         height: 4.0em;
         font-size: 36px;
-        padding: 0px;
         width: 100%; /* これだけは横幅いっぱいに */
     }
     
@@ -223,7 +224,7 @@ else:
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         
         # 比率を [5, 1] くらいにして、ボタンを右端に小さく置きます
-        c_title, c_btn = st.columns([5, 1])
+        c_title, c_btn = st.columns([1, 1])
         
         with c_title:
             # タイトル表示
