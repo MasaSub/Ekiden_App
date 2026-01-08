@@ -180,12 +180,26 @@ else:
         mins, secs = divmod(elapsed_since_last.seconds, 60)
         elapsed_str = f"{mins:02}:{secs:02}"
 
-        st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【修正】タイトルと更新ボタンを横並びにする
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        
+        # 1. タイトルエリアを分割（左：テキスト、右：ボタン）
+        # 比率を [3, 1] にして、テキストのスペースを広く取ります
+        c_title, c_btn = st.columns([3, 1]) 
+        
+        with c_title:
+            st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
+            
+        with c_btn:
+            # ここに更新ボタンを移動！
+            # タイトルの高さと合わせるため、少し余白調整のCSSを入れてもいいですが、
+            # まずは標準配置で置きます。
+            if st.button("🔄 更新", use_container_width=True):
+                st.rerun()
 
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【修正版】横並びパネル
-        # ※重要：HTMLコードの行頭スペースを削除しました（バグ防止）
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 2. 横並びパネル (HTML) - インデント対策済み
+        # （以前の更新ボタンがあった場所からは削除済みです）
         st.markdown(f"""
 <div style="display: flex; justify-content: space-between; align-items: center; background-color: #262730; padding: 12px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;">
 <div style="text-align: center; flex: 1;">
@@ -202,12 +216,6 @@ else:
 </div>
 </div>
 """, unsafe_allow_html=True)
-        
-        # 更新ボタン（左寄せで小さく配置）
-        c_refresh, _, _ = st.columns([1, 2, 2])
-        with c_refresh:
-            if st.button("🔄 更新"):
-                st.rerun()
         # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
         st.divider()
