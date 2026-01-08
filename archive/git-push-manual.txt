@@ -10,6 +10,7 @@ git push
 ### PUSH-TAG ###
 
 git add .
-git commit -m " vx.xx "
+git commit -m " vx.x "
+git push
 git tag vx.x
-git push origin vx.xx
+git push origin vx.x
