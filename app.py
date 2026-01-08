@@ -294,32 +294,23 @@ else:
         # 【新機能】3分割情報パネル (KM-Lap / SEC-Lap / Split)
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         st.markdown(f"""
-        <div style="
-            display: flex; justify-content: space-between; align-items: center;
-            background-color: #262730; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;
-        ">
-            <div style="text-align: center; flex: 1;">
-                <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">キロラップ</div>
-                <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_km_lap}</div>
-            </div>
-            
-            <div style="width: 1px; height: 40px; background-color: #555;"></div>
-
-            <div style="text-align: center; flex: 1;">
-                <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">区間ラップ</div>
-                <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_sec_lap}</div>
-            </div>
-
-            <div style="width: 1px; height: 40px; background-color: #555;"></div>
-
-            <div style="text-align: center; flex: 1;">
-                <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">スタートから</div>
-                <div style="font-size: 20px; font-weight: bold; color: #ffffff; line-height: 1.3;">{str_split}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.divider()
+<div style="display: flex; justify-content: space-between; align-items: center; background-color: #262730; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;">
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">キロラップ</div>
+        <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_km_lap}</div>
+    </div>
+    <div style="width: 1px; height: 40px; background-color: #555;"></div>
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">区間ラップ</div>
+        <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_sec_lap}</div>
+    </div>
+    <div style="width: 1px; height: 40px; background-color: #555;"></div>
+    <div style="text-align: center; flex: 1;">
+        <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">スタートから</div>
+        <div style="font-size: 20px; font-weight: bold; color: #ffffff; line-height: 1.3;">{str_split}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
         # 操作ボタン類
         # 1. ラップ計測
