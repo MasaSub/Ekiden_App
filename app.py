@@ -275,8 +275,6 @@ else:
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
             st.toast(f"{next_km}km地点を記録！")
             st.rerun()
-        
-        st.write("")
 
         # 2. 中継ボタン（columnsを使わず、そのまま書く＝縦に並ぶ）
         if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
@@ -289,9 +287,6 @@ else:
             conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
             st.success(f"{next_section_num+1}区へリレーしました！")
             st.rerun()
-
-        # ボタンの間に少し隙間を空ける
-        st.write("") 
         
         # 3. Finishボタン（一番下に配置）
         if st.button("🏆 Finish", use_container_width=True):
