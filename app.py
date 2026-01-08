@@ -312,6 +312,8 @@ else:
 </div>
 """, unsafe_allow_html=True)
 
+        st.divider()
+
         # 操作ボタン類
         # 1. ラップ計測
         if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
