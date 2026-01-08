@@ -236,7 +236,7 @@ else:
         with c_btn:
             # Pythonのボタン機能を使うのでエラーは起きません
             # アイコンのみにしてスペース節約
-            if st.button("♻️　　", help="更新"):
+            if st.button("♻️　", help="更新"):
                 st.rerun()
 
         # HTMLパネル（ここは変更なし）
