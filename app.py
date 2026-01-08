@@ -53,18 +53,6 @@ st.markdown("""
         flex: none !important;
     }
             
-            /* 左のカラム（タイトル）：余った幅を全部使う
-            div[data-testid="column"]:nth-of-type(1) {
-                flex: 1 1 auto !important; 
-                width: auto !important;
-            }
-            
-            /* 更新ボタン（2列目）の幅を「ボタンの中身」に合わせる */
-            div[data-testid="column"]:nth-of-type(2) {
-                flex: 0 0 auto !important; /* 自動で広がるのを防ぐ */
-                width: auto !important;
-            } */
-            
     /* 通常ボタン（更新・次へ・Finishなど） */
     div.stButton > button {
         height: 2.8em;           /* 3.5emから縮小（スリムに） */
