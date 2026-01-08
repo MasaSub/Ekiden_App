@@ -4,6 +4,7 @@
 
 import streamlit as st
 import pandas as pd
+import math
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from streamlit_gsheets import GSheetsConnection
@@ -144,13 +145,14 @@ def style_decimal(time_str):
 
 # スプリット用 (h:mm:ss) ※0.1秒なし
 def fmt_time(sec):
+    sec = math.ceil(sec)
     m, s = divmod(int(sec), 60)
     h, m = divmod(m, 60)
     return f"{h:01}:{m:02}:{s:02}"
 
 # ラップ用 (mm:ss.f)
 def fmt_time_lap(sec):
-    total_tenths = int(sec * 10)
+    total_tenths = math.ceil(sec * 10)
     rem_tenths = total_tenths % 10
     total_sec = total_tenths // 10
     m, s = divmod(total_sec, 60)
