@@ -4,10 +4,10 @@
 
 import streamlit as st
 import pandas as pd
-import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from streamlit_gsheets import GSheetsConnection
+from streamlit_autorefresh import st_autorefresh
 
 # ==========================================
 # 設定・定数
@@ -284,7 +284,11 @@ else:
                 conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
                 st.rerun()
         
-        # 自動更新ロジック（ONの場合のみ実行）
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【変更】streamlit-autorefresh による非同期更新
+        # Pythonを止めることなく、ブラウザ側から10秒ごとに更新をかけます
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         if auto_reload:
-            time.sleep(10)
-            st.rerun()
+            st_autorefresh(interval=10000, key="datarefresh")
+            # interval=10000 は 10,000ミリ秒 = 10秒 です
+            # このコンポーネントを置くだけで勝手に更新されます（st.rerun不要）
