@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.0 date = 2026/01/08
+# version = 1.3.1 date = 2026/01/08
 # ==========================================
 
 import streamlit as st
@@ -7,146 +7,331 @@ import pandas as pd
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from streamlit_gsheets import GSheetsConnection
+from streamlit_autorefresh import st_autorefresh
 
 # ==========================================
-# 設定・定数（必要に応じて変更してください）
+# 設定・定数
 # ==========================================
+VERSION = "ver 1.3.1" ###更新毎に書き換え
+
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】あなたのスプレッドシートのURLに書き換えてください
-WORKSHEET_NAME = "log"  # スプレッドシートのタブ名
+WORKSHEET_NAME = "log"
+JST = ZoneInfo("Asia/Tokyo")
+AUTO_RELOAD_SEC = 10
 
 # ページ設定
-st.set_page_config(page_title="駅伝ラップ計測", page_icon="🎽")
-
-# タイトル表示
-st.title("🎽 駅伝ラップ計測アプリ")
+st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
 
 # ==========================================
-# 1. データ接続と読み込み機能
+# CSSデザイン定義
 # ==========================================
-# Google Sheetsへの接続を確立
-conn = st.connection("gsheets", type=GSheetsConnection)
+st.markdown("""
+    <style>
+    /* 画面からはみ出さないようにする */
+    .stApp {
+        overflow-x: hidden;
+    }
+    /* 全体の余白を詰めて画面を広く使う */
+    .block-container {
+        padding-top: 2.0rem;
+        padding-bottom: 5rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+            
+    /* スマホでもカラムを縦積みにせず、無理やり横に並べる設定 */
+    div[data-testid="stHorizontalBlock"] {
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        gap: 10px !important;
+        align-items: center !important;
+    }
+            
+    /* 右側のカラム（更新ボタン）を右端に寄せる設定 */
+    div[data-testid="column"]:nth-of-type(2) {
+        display: flex !important;
+        justify-content: flex-end !important;
+        width: auto !important;
+    }
+            
+    /* 更新ボタン（ヘッダー内にあるボタン）の特別設定 */
+    div[data-testid="stHorizontalBlock"] button {
+        height: 2.5em !important;
+        width: 3em !important;
+        padding: 0px !important;
+        margin: 0px !important;
+        border-radius: 8px !important;
+        line-height: 1 !important;
+        float: right !important;
+    }
 
-def load_data():
-    """
-    スプレッドシートからデータを読み込む関数
-    ttl=2 は「2秒間はキャッシュを使う」という意味。
-    これにより、頻繁なリロードでもAPI制限にかかりにくくしつつ、最新データを取得します。
-    """
+    /* その他のボタン（ラップ・次へ・Finish） */
+    div.stButton > button {
+        height: 3em;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 10px;
+        width: 100%;
+    }
+    
+    /* ラップ計測ボタン（Primary）だけは少し大きく残す */
+    div.stButton > button[kind="primary"] {
+        background-color: #FF4B4B;
+        color: white;
+        height: 4.0em;
+        font-size: 36px;
+        width: 100%;
+    }
+    
+    /* タイトルの余白を詰める */
+    h3 {
+        padding: 0px;
+        margin: 0px;
+        font-size: 1.3rem !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# 【修正】タイトル（バージョン情報付き）
+# ユーザー指定のデザインに変更しました
+# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+st.markdown(f"""
+    <h2 style='text-align: center; font-size: 24px; margin-bottom: 2px;'>
+        🎽 駅伝けいそくん
+    </h2>
+    <div style="text-align: center; font-size: 12px; color: #888; margin-bottom: 20px;">
+        {VERSION}
+    </div>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# 関数定義
+# ==========================================
+def load_data(conn):
     try:
-        # スプレッドシートのデータをDataFrameとして取得
-        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=2)
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=AUTO_RELOAD_SEC)
         return df
     except Exception as e:
-        st.error(f"データの読み込みに失敗しました: {e}")
-        return pd.DataFrame() # 空のデータを返す
+        return pd.DataFrame()
 
-# データをロード
-df = load_data()
+def get_time_str(dt):
+    return dt.strftime("%H:%M:%S")
+
+def parse_time_str(time_str):
+    now = datetime.now(JST)
+    try:
+        t = datetime.strptime(time_str, "%H:%M:%S").time()
+        return datetime.combine(now.date(), t).replace(tzinfo=JST)
+    except:
+        return now
+    
+def fmt_time(sec):
+    m, s = divmod(int(sec), 60)
+    h, m = divmod(m, 60)
+    return f"{h:02}:{m:02}:{s:02}"
 
 # ==========================================
-# 2. メインロジック（計測・表示）
+# メイン処理
 # ==========================================
+conn = st.connection("gsheets", type=GSheetsConnection)
+df = load_data(conn)
 
-# --- A. まだデータがない場合（レース開始前） ---
+# --- A. レース開始前 ---
 if df.empty or len(df) == 0:
-    st.info("現在は待機中です。1区の走者がスタートしたらボタンを押してください。")
+    st.info("レース開始前")
     
     # スタートボタン
-    if st.button("🔫 レーススタート (0km)", type="primary", use_container_width=True):
-        current_time = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%H:%M:%S")
-        
-        # スタート地点(0km)のデータを作成
+    if st.button("🔫 レーススタート (1区)", type="primary", use_container_width=True):
+        now = datetime.now(JST)
         start_data = pd.DataFrame([{
-            "point": "0km (Start)",
-            "time": current_time,
-            "split": "00:00:00"
+            "区間": "1区", "地点": "Start", "時刻": get_time_str(now),
+            "ラップ": "00:00:00", "スプリット": "00:00:00"
         }])
-        
-        # スプレッドシートをこのデータで上書き更新
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
-        st.success("レースを開始しました！")
-        st.rerun() # 画面をリロードして反映
+        
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【重要】スタートした瞬間、サーバーのキャッシュを爆破する
+        # これにより、待機中の他の人のスマホも次の更新で「走行中」に切り替わります
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        st.cache_data.clear()
+        st.success("レーススタート！")
+        st.rerun()
 
-# --- B. レース進行中 ---
+    st.write("")
+
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    # 【修正】スタート前だけ「2秒間隔」にして描画落ちを防ぐ
+    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    with st.expander("管理メニュー"):
+        st.write("設定")
+        auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
+    
+    if auto_reload_start:
+        # ここだけ * 200 (2000ms = 2秒) に設定します
+        # 処理が軽すぎるため、1秒だと速すぎてメニューが表示されなくなるのを防ぎます
+        st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="refresh_start")
+
+
+# --- B. レース進行中 or 終了後 ---
 else:
-    # 最新のデータを取得
     last_row = df.iloc[-1]
-    start_time_str = df.iloc[0]['time']
+    last_point = str(last_row['地点'])
     
-    # 現在の地点（例: データが1行なら次は1km地点）
-    next_km = len(df) 
-    
-    # --- 現在のステータス表示エリア ---
-    st.markdown("### ⏱️ 最新状況")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(label="直近の通過地点", value=last_row['point'])
-    with col2:
-        st.metric(label="通過時刻", value=last_row['time'])
-
-    st.divider() # 仕切り線
-
-    # --- 計測ボタンエリア（ここが重要） ---
-    st.subheader(f"🏃 次は {next_km}km 地点の計測")
-    st.warning("⚠️ 計測担当者は、走者が通過した瞬間にボタンを押してください")
-
-    # ラップ計測ボタン
-    if st.button(f"⏱️ {next_km}km地点 ラップを記録", type="primary", use_container_width=True):
-        # 現在時刻
-        now_obj = datetime.now(ZoneInfo("Asia/Tokyo"))
-        now_str = now_obj.strftime("%H:%M:%S")
+    # 1. フィニッシュ済み
+    if last_point == "Finish":
+            # st.balloons()
+        st.success("🏆 競技終了！お疲れ様でした！")
         
-        # スタート時刻からの経過時間計算（簡易版）
-        # ※日付をまたぐ場合などはより厳密な計算が必要ですが、日中の駅伝ならこれで動作します
-        start_obj = datetime.strptime(start_time_str, "%H:%M:%S").replace(year=now_obj.year, month=now_obj.month, day=now_obj.day)
+        st.metric("🏁 フィニッシュ時刻", last_row['時刻'])
+        st.metric("⏱️ 最終タイム", last_row['スプリット'])
         
-        # マイナスになる（日付またぎ）対策
-        if now_obj < start_obj:
-            elapsed = now_obj - start_obj # ここは実際には日付加算などの調整が必要なケースあり
-        else:
-            elapsed = now_obj - start_obj
+        st.divider()
+        st.markdown("### 📊 最終リザルト")
+        st.dataframe(df, use_container_width=True)
+        
+        with st.expander("管理メニュー"):
+            st.write("設定")
+            # デフォルトをONにする仕様
+            auto_reload_finish = st.toggle("🔄 自動更新", value=True, key="auto_reload_finish")
             
-        # 経過時間を "HH:MM:SS" 形式に整形
-        total_seconds = int(elapsed.total_seconds())
-        hours, remainder = divmod(total_seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        split_str = f"{hours:02}:{minutes:02}:{seconds:02}"
+            st.divider()
 
-        # 追加する行データ
-        new_row = pd.DataFrame([{
-            "point": f"{next_km}km",
-            "time": now_str,
-            "split": split_str
-        }])
+            if st.button("⚠️ データ全消去（次のレースへ）"):
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
+                st.cache_data.clear() # 即クリア
+                st.rerun()
+            
+        if auto_reload_finish:
+            st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="refresh_finish")
+    
+    # 2. レース中
+    else:
+        last_time_obj = parse_time_str(last_row['時刻'])
+        first_time_obj = parse_time_str(df.iloc[0]['時刻'])
+        now_obj = datetime.now(JST)
+
+        current_section_str = str(last_row['区間']) 
+        try: current_section_num = int(current_section_str.replace("区", ""))
+        except: current_section_num = 1
+
+        if last_point == "Relay":
+            next_section_num = current_section_num + 1
+            next_km = 1
+        else:
+            next_section_num = current_section_num
+            if "km" in last_point:
+                try: last_km = int(last_point.replace("km", ""))
+                except: last_km = 0
+            else: last_km = 0
+            next_km = last_km + 1
+
+        elapsed_since_last = now_obj - last_time_obj
+        mins, secs = divmod(elapsed_since_last.seconds, 60)
+        elapsed_str = f"{mins:02}:{secs:02}"
+
+        # ヘッダー（区間表示＋更新ボタン）
+        c_title, c_btn = st.columns([1, 1])
+        with c_title:
+            st.markdown(f"### 🏃‍♂️ {next_section_num}区 走行中")
+        with c_btn:
+            if st.button("🔄", help="更新"):
+                st.cache_data.clear() # 即クリア
+                st.rerun()
+
+        # 情報パネル
+        st.markdown(f"""
+        <div style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            background-color: #262730;
+            padding: 12px; 
+            border-radius: 10px; 
+            margin-bottom: 8px;
+            border: 1px solid #444;
+        ">
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">前の通過</div>
+                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_point}</div>
+            </div>
+            <div style="text-align: center; flex: 1; border-left: 1px solid #555; border-right: 1px solid #555;">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">通過時刻</div>
+                <div style="font-size: 20px; font-weight: bold; color: white; line-height: 1.2;">{last_row['時刻'][:-3]}<span style="font-size: 14px;">{last_row['時刻'][-3:]}</span></div>
+            </div>
+            <div style="text-align: center; flex: 1;">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 4px;">現在の経過</div>
+                <div style="font-size: 26px; font-weight: bold; color: #FF4B4B; line-height: 1.0;">{elapsed_str}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.divider()
+
+        # 操作ボタン類
+        # 1. ラップ計測
+        if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
+            lap_sec = (now_obj - last_time_obj).total_seconds()
+            total_sec = (now_obj - first_time_obj).total_seconds()
+            new_row = pd.DataFrame([{
+                "区間": f"{next_section_num}区", "地点": f"{next_km}km",
+                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+            }])
+            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.cache_data.clear() # 即クリア
+            st.toast(f"{next_km}km地点を記録！")
+            st.rerun()
+
+        # 2. 中継ボタン
+        if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
+            lap_sec = (now_obj - last_time_obj).total_seconds()
+            total_sec = (now_obj - first_time_obj).total_seconds()
+            new_row = pd.DataFrame([{
+                "区間": f"{next_section_num}区", "地点": "Relay",
+                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+            }])
+            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.cache_data.clear() # 即クリア
+            st.success(f"{next_section_num+1}区へリレーしました！")
+            st.rerun()
         
-        # 既存データと結合
-        updated_df = pd.concat([df, new_row], ignore_index=True)
+        # 3. Finishボタン
+        if st.button("🏆 Finish", use_container_width=True):
+            lap_sec = (now_obj - last_time_obj).total_seconds()
+            total_sec = (now_obj - first_time_obj).total_seconds()
+            new_row = pd.DataFrame([{
+                "区間": f"{next_section_num}区", "地点": "Finish",
+                "時刻": get_time_str(now_obj), "ラップ": fmt_time(lap_sec), "スプリット": fmt_time(total_sec)
+            }])
+            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.concat([df, new_row]))
+            st.cache_data.clear() # 即クリア
+            st.rerun()
+
+        # ログ表示
+        with st.expander("📊 計測ログを表示（タップして開閉）"):
+            st.dataframe(df.iloc[::-1], use_container_width=True)
         
-        # スプレッドシートを更新
-        conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=updated_df)
-        st.toast(f"{next_km}km地点を記録しました！") # ポップアップ通知
-        st.rerun()
+        # 管理メニュー（自動更新機能の追加）
+        with st.expander("管理メニュー"):
+            st.write("設定")
+            # デフォルトをONにする仕様
+            auto_reload = st.toggle("🔄 自動更新", value=True)
+            
+            st.divider()
+            
+            if st.button("⚠️ データ全消去"):
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
+                st.rerun()
+        
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        # 【変更】streamlit-autorefresh による非同期更新
+        # Pythonを止めることなく、ブラウザ側から10秒ごとに更新をかけます
+        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+        if auto_reload:
+            st_autorefresh(interval=AUTO_RELOAD_SEC*100, key="datarefresh")
+            # interval=10000 は 10,000ミリ秒 = 10秒 です
+            # このコンポーネントを置くだけで勝手に更新されます（st.rerun不要）
 
-    # --- データ一覧表示 ---
-    st.divider()
-    st.markdown("### 📊 計測ログ")
-    # 見やすいようにテーブルを表示
-    st.dataframe(df, use_container_width=True)
-
-    # 手動更新ボタン（他の人が押したか確認するため）
-    if st.button("🔄 最新情報を取得（リロード）"):
-        st.rerun()
-
-# ==========================================
-# 管理用メニュー（サイドバーに隠す）
-# ==========================================
-with st.sidebar:
-    st.header("管理メニュー")
-    st.write("間違えて記録した場合、Googleスプレッドシートを直接編集して行を削除してください。")
-    if st.button("⚠️ データを全てリセットする"):
-        # 空のデータフレームで上書きする処理（慎重に！）
-        # 安全のため、ヘッダーだけ残してクリアする処理などを実装推奨
-        empty_df = pd.DataFrame(columns=["point", "time", "split"])
-        conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=empty_df)
-        st.error("データをリセットしました")
-        st.rerun()
