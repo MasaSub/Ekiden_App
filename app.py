@@ -351,7 +351,7 @@ else:
                 st.rerun()
             
         if auto_reload_finish:
-            st_autorefresh(interval=30000, key="refresh_finish")
+            st_autorefresh(interval=10000, key="refresh_finish")
     
     # 2. レース中
     else:
