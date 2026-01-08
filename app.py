@@ -28,10 +28,9 @@ st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout=
 st.markdown("""
     <style>
     /* 画面からはみ出さないようにする */
-    .stApp {
-        overflow-x: hidden;
-    }
-    /* 全体の余白を詰めて画面を広く使う */
+    .stApp { overflow-x: hidden; }
+    
+    /* コンテナ設定 */
     .block-container {
         padding-top: 2.0rem;
         padding-bottom: 5rem;
@@ -39,7 +38,7 @@ st.markdown("""
         padding-right: 0.5rem;
     }
             
-    /* スマホでもカラムを縦積みにせず、無理やり横に並べる設定 */
+    /* ヘッダーのGridレイアウト */
     div[data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: 1fr auto !important;
@@ -47,14 +46,14 @@ st.markdown("""
         align-items: center !important;
     }
             
-    /* 右側のカラム（更新ボタン）を右端に寄せる設定 */
+    /* 右カラム（更新ボタン） */
     div[data-testid="column"]:nth-of-type(2) {
         display: flex !important;
         justify-content: flex-end !important;
         width: auto !important;
     }
             
-    /* 更新ボタン（ヘッダー内にあるボタン）の特別設定 */
+    /* 更新ボタンデザイン */
     div[data-testid="stHorizontalBlock"] button {
         height: 2.5em !important;
         width: 3em !important;
@@ -65,7 +64,7 @@ st.markdown("""
         float: right !important;
     }
 
-    /* その他のボタン（ラップ・次へ・Finish） */
+    /* 通常ボタン */
     div.stButton > button {
         height: 3em;
         font-size: 18px;
@@ -74,7 +73,7 @@ st.markdown("""
         width: 100%;
     }
     
-    /* ラップ計測ボタン（Primary）だけは少し大きく残す */
+    /* Primaryボタン */
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B;
         color: white;
@@ -83,7 +82,7 @@ st.markdown("""
         width: 100%;
     }
     
-    /* タイトルの余白を詰める */
+    /* タイトル調整 */
     h3 {
         padding: 0px;
         margin: 0px;
@@ -95,10 +94,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-# 【修正】タイトル（バージョン情報付き）
-# ユーザー指定のデザインに変更しました
-# ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+# タイトル（バージョン情報付き）
 st.markdown(f"""
     <h2 style='text-align: center; font-size: 24px; margin-bottom: 2px;'>
         🎽 駅伝けいそくん
@@ -133,6 +129,11 @@ def fmt_time(sec):
     m, s = divmod(int(sec), 60)
     h, m = divmod(m, 60)
     return f"{h:02}:{m:02}:{s:02}"
+
+# 【追加】ラップ用 (mm:ss)
+def fmt_time_lap(sec):
+    m, s = divmod(int(sec), 60)
+    return f"{m:02}:{s:02}"
 
 def get_section_start_time(df, section_num):
     """指定した区間の開始時刻（前区間のRelay、またはStart）を取得"""
@@ -170,27 +171,17 @@ if df.empty or len(df) == 0:
             "Split": "00:00:00"
         }])
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
-        
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【重要】スタートした瞬間、サーバーのキャッシュを爆破する
-        # これにより、待機中の他の人のスマホも次の更新で「走行中」に切り替わります
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         st.cache_data.clear()
         st.success("レーススタート！")
         st.rerun()
 
     st.write("")
 
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-    # 【修正】スタート前だけ「2秒間隔」にして描画落ちを防ぐ
-    # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
     with st.expander("管理メニュー"):
         st.write("設定")
         auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
     
     if auto_reload_start:
-        # ここだけ * 200 (2000ms = 2秒) に設定します
-        # 処理が軽すぎるため、1秒だと速すぎてメニューが表示されなくなるのを防ぎます
         st_autorefresh(interval=AUTO_RELOAD_SEC*1000, key="refresh_start")
 
 
@@ -251,40 +242,38 @@ else:
         # 【新機能】リアルタイム3大ラップ計算
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         
-        # 1. キロラップ (KM-Lap): 前回の記録からの経過時間
+        # 1. キロラップ (KM-Lap): mm:ss
         diff_km = (now_obj - last_time_obj).total_seconds()
-        str_km_lap = fmt_time(diff_km) # mm:ss
+        str_km_lap = fmt_time_lap(diff_km) # mm:ss
 
-        # 2. 区間ラップ (SEC-Lap): 現在走っている区間の開始からの経過時間
+        # 2. 区間ラップ (SEC-Lap): mm:ss
         section_start_obj = get_section_start_time(df, next_section_num)
         if section_start_obj:
             diff_sec = (now_obj - section_start_obj).total_seconds()
         else:
             diff_sec = 0
-        str_sec_lap = fmt_time(diff_sec) # mm:ss
+        str_sec_lap = fmt_time_lap(diff_sec) # mm:ss
 
-        # 3. スプリット (Split): レース開始からの総経過時間
+        # 3. スプリット (Split): h:mm:ss
         diff_split = (now_obj - first_time_obj).total_seconds()
-        # h:mm:ss 表記にするため自作フォーマット
-        h_split, rem = divmod(int(diff_split), 3600)
-        m_split, s_split = divmod(rem, 60)
-        str_split = f"{h_split}:{m_split:02}:{s_split:02}"
+        str_split = fmt_time(diff_split) # h:mm:ss
 
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【新機能】ヘッダー表示：「X区 YYY済み」
+        # 【新機能】ヘッダー表示：「X区 Y ~ Y+1 km 走行中📣」
         # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        if last_point == "Start":
-            header_status = "Start済み"
-        elif last_point == "Relay":
-            header_status = "Relay済み"
+        if last_point in ["Start", "Relay"]:
+            current_dist_val = 0
+        elif "km" in last_point:
+            try: current_dist_val = int(last_point.replace("km", ""))
+            except: current_dist_val = 0
         else:
-            header_status = f"{last_point}通過済み"
+            current_dist_val = 0
         
-        header_text = f"{current_section_str} {header_status}"
+        header_text = f"🏃‍♂️ {next_section_num}区 {current_dist_val} ~ {current_dist_val+1} km 走行中📣"
 
         c_title, c_btn = st.columns([1, 1])
         with c_title:
-            st.markdown(f"### 🏃‍♂️ {header_text}")
+            st.markdown(f"### {header_text}")
         with c_btn:
             if st.button("🔄", help="更新"):
                 st.cache_data.clear()
@@ -297,12 +286,12 @@ else:
 <div style="display: flex; justify-content: space-between; align-items: center; background-color: #262730; padding: 10px; border-radius: 10px; margin-bottom: 8px; border: 1px solid #444;">
     <div style="text-align: center; flex: 1;">
         <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">キロラップ</div>
-        <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_km_lap}</div>
+        <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_km_lap}</div>
     </div>
     <div style="width: 1px; height: 40px; background-color: #555;"></div>
     <div style="text-align: center; flex: 1;">
         <div style="font-size: 11px; color: #aaa; margin-bottom: 2px;">区間ラップ</div>
-        <div style="font-size: 24px; font-weight: bold; color: #4bd6ff; line-height: 1.1;">{str_sec_lap}</div>
+        <div style="font-size: 24px; font-weight: bold; color: #FF4B4B; line-height: 1.1;">{str_sec_lap}</div>
     </div>
     <div style="width: 1px; height: 40px; background-color: #555;"></div>
     <div style="text-align: center; flex: 1;">
@@ -405,10 +394,6 @@ else:
                 conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
                 st.rerun()
         
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
-        # 【変更】streamlit-autorefresh による非同期更新
-        # Pythonを止めることなく、ブラウザ側から10秒ごとに更新をかけます
-        # ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
         if auto_reload:
             st_autorefresh(interval=AUTO_RELOAD_SEC*100, key="datarefresh")
             # interval=10000 は 10,000ミリ秒 = 10秒 です
