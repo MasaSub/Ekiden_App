@@ -38,89 +38,44 @@ def set_mode(mode):
     st.session_state["app_mode"] = mode
 
 # ==========================================
-# CSSデザイン定義 & 動的スタイル適用
+# CSSデザイン定義
 # ==========================================
-# 現在のモードを取得
-current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
-
-# ▼▼▼ v1.4.1 修正: ボタンの親コンテナ(element-container)の順番で指定する ▼▼▼
-# サイドバーの構成: 
-# 1. Title("メニュー") -> element-container:nth-of-type(1)
-# 2. Button("計測")   -> element-container:nth-of-type(2)
-# 3. Button("閲覧")   -> element-container:nth-of-type(3)
-# 4. Button("管理")   -> element-container:nth-of-type(4)
-
-button_css = ""
-if current_mode == "⏱️ 計測モード":
-    # 2番目のコンテナ(=計測ボタン)を赤くする
-    button_css = """
-    section[data-testid="stSidebar"] div[data-testid="element-container"]:nth-of-type(2) button {
-        background-color: #FF4B4B !important;
-        color: white !important;
-        border-color: #FF4B4B !important;
-        font-weight: bold !important;
-    }
-    """
-elif current_mode == "📈 閲覧モード":
-    # 3番目のコンテナ(=閲覧ボタン)を赤くする
-    button_css = """
-    section[data-testid="stSidebar"] div[data-testid="element-container"]:nth-of-type(3) button {
-        background-color: #FF4B4B !important;
-        color: white !important;
-        border-color: #FF4B4B !important;
-        font-weight: bold !important;
-    }
-    """
-elif current_mode == "⚙️ 管理者モード":
-    # 4番目のコンテナ(=管理ボタン)を赤くする
-    button_css = """
-    section[data-testid="stSidebar"] div[data-testid="element-container"]:nth-of-type(4) button {
-        background-color: #FF4B4B !important;
-        color: white !important;
-        border-color: #FF4B4B !important;
-        font-weight: bold !important;
-    }
-    """
-
-st.markdown(f"""
+st.markdown("""
     <style>
-    .stApp {{ overflow-x: hidden; }}
-    .block-container {{
+    .stApp { overflow-x: hidden; }
+    .block-container {
         padding-top: 2.0rem;
         padding-bottom: 5rem;
         padding-left: 0.5rem;
         padding-right: 0.5rem;
-    }}
-    section[data-testid="stSidebar"] {{
+    }
+    
+    /* サイドバーの背景色をダークに */
+    section[data-testid="stSidebar"] {
         background-color: #262730;
         color: white;
-    }}
-    section[data-testid="stSidebar"] button {{
-        background-color: transparent;
-        color: #eee;
-        border: 1px solid #555;
+    }
+    
+    /* サイドバー内のボタンのスタイル調整 */
+    section[data-testid="stSidebar"] button {
         text-align: left;
         padding-left: 20px;
         width: 100%;
-        transition: all 0.2s;
-    }}
-    section[data-testid="stSidebar"] button:hover {{
-        border-color: #FF4B4B;
-        color: #FF4B4B;
-    }}
-    {button_css}
-    div[data-testid="stHorizontalBlock"] {{
+    }
+
+    div[data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: 1fr auto !important;
         gap: 10px !important;
         align-items: center !important;
-    }}
-    div[data-testid="column"]:nth-of-type(2) {{
+    }
+    div[data-testid="column"]:nth-of-type(2) {
         display: flex !important;
         justify-content: flex-end !important;
         width: auto !important;
-    }}
-    div[data-testid="stHorizontalBlock"] button {{
+    }
+    
+    div[data-testid="stHorizontalBlock"] button {
         height: 2.5em !important;
         width: 3em !important;
         padding: 0px !important;
@@ -128,29 +83,37 @@ st.markdown(f"""
         border-radius: 8px !important;
         line-height: 1 !important;
         float: right !important;
-    }}
-    div.stButton > button {{
+    }
+
+    div.stButton > button {
         height: 3em;
         font-size: 18px;
         font-weight: bold;
         border-radius: 10px;
         width: 100%;
-    }}
-    div.stButton > button[kind="primary"] {{
+    }
+    /* Primaryボタン(赤)のデザイン */
+    div.stButton > button[kind="primary"] {
         background-color: #FF4B4B;
         color: white;
-        height: 4.0em;
+        height: 4.0em; /* メイン画面のボタンは大きく */
         font-size: 36px;
         width: 100%;
-    }}
-    h3 {{
+    }
+    /* サイドバー内のPrimaryボタンはサイズを普通にする */
+    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+        height: 3em; 
+        font-size: 18px;
+    }
+
+    h3 {
         padding: 0px;
         margin: 0px;
         font-size: 1.3rem !important;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }}
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -339,12 +302,23 @@ def show_js_timer(km_sec, sec_sec, split_sec):
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.sidebar.title("メニュー")
-st.sidebar.button("⏱️ 計測モード", on_click=set_mode, args=("⏱️ 計測モード",), use_container_width=True)
-st.sidebar.button("📈 閲覧モード", on_click=set_mode, args=("📈 閲覧モード",), use_container_width=True)
-st.sidebar.button("⚙️ 管理者モード", on_click=set_mode, args=("⚙️ 管理者モード",), use_container_width=True)
 
-# 現在のモード再取得 (念のため)
-app_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
+# ▼▼▼ v1.4.7 修正: type引数を使って、現在選択中のモードだけを赤(primary)にする ▼▼▼
+# session_stateから現在のモードを取得（デフォルトは計測）
+current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
+
+# 各ボタンのタイプ（色）を決定
+type_measure = "primary" if current_mode == "⏱️ 計測モード" else "secondary"
+type_view    = "primary" if current_mode == "📈 閲覧モード" else "secondary"
+type_admin   = "primary" if current_mode == "⚙️ 管理者モード" else "secondary"
+
+# ボタン描画 (type引数を渡す)
+st.sidebar.button("⏱️ 計測モード", on_click=set_mode, args=("⏱️ 計測モード",), type=type_measure, use_container_width=True)
+st.sidebar.button("📈 閲覧モード", on_click=set_mode, args=("📈 閲覧モード",), type=type_view, use_container_width=True)
+st.sidebar.button("⚙️ 管理者モード", on_click=set_mode, args=("⚙️ 管理者モード",), type=type_admin, use_container_width=True)
+
+# 念のため app_mode 変数を更新
+app_mode = current_mode
 
 # 現在のモードをサイドバー下部に表示（確認用）
 # st.sidebar.divider()
