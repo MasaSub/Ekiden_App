@@ -31,6 +31,40 @@ st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout=
 # ==========================================
 # CSSデザイン定義
 # ==========================================
+# 現在のモードに応じて、サイドバーのボタンの色を変えるCSSを作成
+current_mode = st.session_state["app_mode"]
+button_css = ""
+
+# ▼▼▼ v1.4.3 追加: 選択中のボタンだけ赤くするCSS ▼▼▼
+# サイドバーのボタンは上から順に nth-of-type(1), (2), (3) となる性質を利用
+if current_mode == "⏱️ 計測モード":
+    button_css = """
+    section[data-testid="stSidebar"] .stButton:nth-of-type(1) button {
+        background-color: #FF4B4B !important;
+        color: white !important;
+        border-color: #FF4B4B !important;
+        font-weight: bold !important;
+    }
+    """
+elif current_mode == "📈 閲覧モード":
+    button_css = """
+    section[data-testid="stSidebar"] .stButton:nth-of-type(2) button {
+        background-color: #FF4B4B !important;
+        color: white !important;
+        border-color: #FF4B4B !important;
+        font-weight: bold !important;
+    }
+    """
+elif current_mode == "⚙️ 管理者モード":
+    button_css = """
+    section[data-testid="stSidebar"] .stButton:nth-of-type(3) button {
+        background-color: #FF4B4B !important;
+        color: white !important;
+        border-color: #FF4B4B !important;
+        font-weight: bold !important;
+    }
+    """
+
 st.markdown("""
     <style>
     .stApp { overflow-x: hidden; }
@@ -46,23 +80,23 @@ st.markdown("""
         color: white; /* 文字色を白に */
     }
             
-    /* ▼▼▼ v1.4.1 追加: サイドバーのボタンをメニューっぽくする ▼▼▼ */
-    section[data-testid="stSidebar"] button {
+    /* サイドバーのボタン基本スタイル */
+    section[data-testid="stSidebar"] button {{
         background-color: transparent;
-        color: white;
+        color: #eee;
         border: 1px solid #555;
         text-align: left;
         padding-left: 20px;
-    }
-    section[data-testid="stSidebar"] button:hover {
+        width: 100%;
+        transition: all 0.2s;
+    }}
+    section[data-testid="stSidebar"] button:hover {{
         border-color: #FF4B4B;
         color: #FF4B4B;
-    }
-    section[data-testid="stSidebar"] button:focus {
-        background-color: #333;
-        border-color: #FF4B4B;
-        color: #FF4B4B;
-    }
+    }}
+    
+    /* ▼▼▼ ここに動的に生成した「アクティブボタン用CSS」を埋め込む ▼▼▼ */
+    {button_css}
             
     div[data-testid="stHorizontalBlock"] {
         display: grid !important;
@@ -308,8 +342,8 @@ st.sidebar.button("⚙️ 管理者モード", on_click=set_mode, args=("⚙️ 
 app_mode = st.session_state["app_mode"]
 
 # 現在のモードをサイドバー下部に表示（確認用）
-st.sidebar.divider()
-st.sidebar.caption(f"現在のモード:\n**{app_mode}**")
+# st.sidebar.divider()
+# st.sidebar.caption(f"現在のモード:\n**{app_mode}**")
 
 # ==========================================
 # 1. 計測モード (v1.4.0のロジックをここに集約)
