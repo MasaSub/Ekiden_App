@@ -100,13 +100,15 @@ def load_data(conn):
     try:
         df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=CACHE_TTL_SEC)
         if not df.empty:
-            cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split']
+            # ▼▼▼ v1.4.0 変更: 'Project' を文字列化対象に追加 ▼▼▼
+            cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split', 'Project']
             for col in cols_to_str:
                 if col in df.columns:
                     df[col] = df[col].astype(str)
         return df
     except Exception as e:
-        st.error(f"通信エラー（再接続中...）: {e}")
+            # st.error(f"通信エラー（再接続中...）: {e}")
+        st.error(f"通信エラー（再接続中...）")
         return pd.DataFrame()
 
 # 安全な追記書き込み用のクライアント取得関数
@@ -249,6 +251,11 @@ df = load_data(conn)
 if df.empty or len(df) == 0:
     st.info("レース開始前")
     
+    # ▼▼▼ v1.4.0 追加: プロジェクト名の入力欄 ▼▼▼
+    # デフォルト値は今日の日付を入れる
+    default_proj_name = f"Race_{datetime.now(JST).strftime('%Y%m%d')}"
+    project_name_input = st.text_input("📁 プロジェクト名 (記録用)", value=default_proj_name)
+    
     if st.button("🔫 レーススタート (1区)", type="primary", use_container_width=True):
         now = datetime.now(JST)
         start_data = pd.DataFrame([{
@@ -257,14 +264,13 @@ if df.empty or len(df) == 0:
             "Time": get_time_str(now),
             "KM-Lap": "00:00:00.0", 
             "SEC-Lap": "00:00:00.0", 
-            "Split": "0:00:00"
+            "Split": "0:00:00",
+            "Project": project_name_input # ▼▼▼ v1.4.0 追加: プロジェクト名も保存 ▼▼▼
         }])
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
         st.cache_data.clear()
         st.success("レーススタート！")
         st.rerun()
-
-    st.write("")
 
     with st.expander("管理メニュー"):
         st.write("設定")
@@ -278,6 +284,10 @@ if df.empty or len(df) == 0:
 else:
     last_row = df.iloc[-1]
     last_point = str(last_row['Location'])
+
+    # ▼▼▼ v1.4.0 追加: プロジェクト名の取得 ▼▼▼
+    # データフレームに 'Project' 列があれば取得、なければ "Unknown"
+    current_project_name = df.iloc[0]['Project'] if 'Project' in df.columns else "Unknown"
     
     # 1. フィニッシュ済み
     if last_point == "Finish":
@@ -285,6 +295,9 @@ else:
         st.metric("🏁 フィニッシュ時刻", last_row['Time'])
         st.metric("⏱️ 最終タイム", last_row['Split'])
         
+        # ▼▼▼ v1.4.0 追加: プロジェクト名の表示 ▼▼▼
+        st.caption(f"📁 プロジェクト: {current_project_name}")
+
         st.divider()
         st.markdown("### 📊 最終リザルト")
         st.dataframe(df, use_container_width=True)
@@ -293,10 +306,34 @@ else:
             st.write("設定")
             auto_reload_finish = st.toggle("🔄 自動更新", value=True, key="auto_reload_finish")
             st.divider()
-            if st.button("⚠️ データ全消去（次のレースへ）"):
-                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=pd.DataFrame(columns=df.columns))
-                st.cache_data.clear()
-                st.rerun()
+            
+            # ▼▼▼ v1.4.0 変更: アーカイブ保存機能 ▼▼▼
+            if st.button("📦 レース終了（ログ保存して次へ）", type="primary"):
+                try:
+                    gc = get_gspread_client()
+                    sh = gc.open_by_url(SHEET_URL)
+                    
+                    # 1. 現在の 'log' シートを取得してリネーム (退避)
+                    # 名前が重複しないように日時をつける
+                    archive_name = f"{current_project_name}_{datetime.now(JST).strftime('%Y%m%d_%H%M')}"
+                    worksheet = sh.worksheet(WORKSHEET_NAME)
+                    worksheet.update_title(archive_name)
+                    
+                    # 2. 新しい 'log' シートを作成 (新品)
+                    new_ws = sh.add_worksheet(title=WORKSHEET_NAME, rows=1000, cols=10)
+                    
+                    # 3. ヘッダーを書き込む (次のレース用)
+                    # ※conn.updateで上書きされるので必須ではないが、念のため
+                    new_ws.append_row(["Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Project"])
+                    
+                    st.cache_data.clear()
+                    st.toast(f"ログを「{archive_name}」として保存しました！")
+                    st.rerun()
+                    
+                except Exception as e:
+                        # st.error(f"保存エラー: {e}")
+                    st.error(f"保存エラー")
+
         if auto_reload_finish:
             st_autorefresh(interval=10000, key="refresh_finish")
     
@@ -314,6 +351,9 @@ else:
             last_time_obj = parse_time_str(last_row['Time'])
             first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
             
+            # ▼▼▼ v1.4.0 追加: プロジェクト名の取得(Fragment内) ▼▼▼
+            proj_name = current_df.iloc[0]['Project'] if 'Project' in current_df.columns else "Unknown"
+
             # 区間判定
             current_section_str = str(last_row['Section']) 
             try: current_section_num = int(current_section_str.replace("区", ""))
@@ -344,6 +384,8 @@ else:
             c_title, c_btn = st.columns([1, 1])
             with c_title:
                 st.markdown(f"### {header_text}")
+                # ▼▼▼ v1.4.0 追加: プロジェクト名表示 ▼▼▼
+                st.caption(f"📁 Project: {proj_name}")
             with c_btn:
                 if st.button("🔄", help="即時更新"):
                     st.cache_data.clear()
@@ -375,7 +417,8 @@ else:
                     get_time_str(now_for_record),
                     fmt_time_lap(lap_sec),
                     fmt_time_lap(section_lap_sec),
-                    fmt_time(total_sec)
+                    fmt_time(total_sec),
+                    proj_name # ▼▼▼ v1.4.0 追加: プロジェクト名も保存 ▼▼▼
                 ]
                 # gspreadクライアントを取得してappend_row
                 gc = get_gspread_client()
@@ -403,6 +446,9 @@ else:
             last_time_obj = parse_time_str(last_row['Time'])
             first_time_obj = parse_time_str(df.iloc[0]['Time'])
             
+            # ▼▼▼ v1.4.0 追加: プロジェクト名取得 ▼▼▼
+            proj_name = df.iloc[0]['Project'] if 'Project' in df.columns else "Unknown"
+
             # 次の区間等の再計算
             current_section_str = str(last_row['Section']) 
             try: current_section_num = int(current_section_str.replace("区", ""))
@@ -423,7 +469,8 @@ else:
                 get_time_str(now_for_record),
                 fmt_time_lap(lap_sec),
                 fmt_time_lap(section_lap_sec),
-                fmt_time(total_sec)
+                fmt_time(total_sec),
+                proj_name # ▼▼▼ v1.4.0 追加: プロジェクト名も保存 ▼▼▼
             ]
             # gspreadクライアントを取得してappend_row
             gc = get_gspread_client()
