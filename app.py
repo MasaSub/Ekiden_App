@@ -496,6 +496,7 @@ if app_mode == "⏱️ 計測モード":
                     st.success("リレーしました！")
                 
                 st.write("") # 誤操作防止のスペース
+                st.write("")
                 if st.button("🏆 Finish", use_container_width=True):
                     # Finishの場合は特殊処理が必要だが、append_record関数内では引数loc_textをそのまま記録しているため
                     # ここでは "Finish" という文字列を渡せば、Location="Finish" として記録される。
