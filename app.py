@@ -550,14 +550,14 @@ elif app_mode == "📈 閲覧モード":
     sheet_names = get_sheet_names_cached()
     
     if sheet_names:
-        # シート選択 (デフォルトは log)
+        # シート選択 (デフォルトは latest-log)
         # リストに 'log' があればそれを初期値に、なければ先頭に
         default_index = 0
         if WORKSHEET_NAME in sheet_names:
             default_index = sheet_names.index(WORKSHEET_NAME)
         
         # シート選択 (デフォルトは latest-log)
-        selected_sheet = st.selectbox("閲覧するシートを選択", sheet_names, index=0)
+        selected_sheet = st.selectbox("閲覧するレースを選択", sheet_names, index=0)
         
         if st.button("データを読み込む"):
             # 選択されたシートのデータを読み込む
