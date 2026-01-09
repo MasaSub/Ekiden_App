@@ -302,8 +302,10 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.sidebar.title("メニュー")
 
+# session_stateから現在のモードを取得（デフォルトは計測）
 current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
 
+# ▼▼▼ 変更: 閲覧モードのアイコンを 📈 に変更 ▼▼▼
 type_measure = "primary" if current_mode == "⏱️ 計測モード" else "secondary"
 type_view    = "primary" if current_mode == "📈 閲覧モード" else "secondary"
 type_admin   = "primary" if current_mode == "⚙️ 管理者モード" else "secondary"
@@ -345,7 +347,6 @@ if app_mode == "⏱️ 計測モード":
 
         with st.expander("設定"):
             auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
-        
         if auto_reload_start:
             st_autorefresh(interval=2000, key="refresh_start")
 
@@ -355,7 +356,6 @@ if app_mode == "⏱️ 計測モード":
         last_point = str(last_row['Location'])
         current_Race_name = df.iloc[0]['Race'] if 'Race' in df.columns else "Unknown"
         
-        # フィニッシュ済み
         if last_point == "Finish":
             st.success("🏆 競技終了！お疲れ様でした！")
             st.metric("🏁 フィニッシュ時刻", last_row['Time'])
@@ -388,7 +388,6 @@ if app_mode == "⏱️ 計測モード":
             if st.toggle("🔄 自動更新", value=True, key="auto_reload_finish"):
                 st_autorefresh(interval=10000, key="refresh_finish")
         
-        # レース中
         else:
             @st.fragment(run_every=4)
             def show_race_dashboard():
@@ -402,11 +401,12 @@ if app_mode == "⏱️ 計測モード":
                 first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
                 proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
-                # 区間判定
+                # 現在の区間番号を取得
                 current_section_str = str(last_row['Section']) 
                 try: current_section_num = int(current_section_str.replace("区", ""))
                 except: current_section_num = 1
 
+                # 次の予測
                 if last_point == "Relay":
                     next_section_num = current_section_num + 1
                     next_km = 1
@@ -444,18 +444,22 @@ if app_mode == "⏱️ 計測モード":
                 elapsed_split = (now_calc - first_time_obj).total_seconds()
                 show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
-                st.write("")
+                st.divider()
 
                 now_for_record = datetime.now(JST)
 
-                def append_record(loc_text):
+                def append_record(section_val, loc_text):
                     lap_sec = (now_for_record - last_time_obj).total_seconds()
                     total_sec = (now_for_record - first_time_obj).total_seconds()
-                    section_start_obj = get_section_start_time(current_df, next_section_num)
+                    
+                    try: sec_num_int = int(section_val.replace("区", ""))
+                    except: sec_num_int = current_section_num
+                    
+                    section_start_obj = get_section_start_time(current_df, sec_num_int)
                     section_lap_sec = (now_for_record - section_start_obj).total_seconds() if section_start_obj else 0
                     
                     values = [
-                        f"{next_section_num}区",
+                        section_val,
                         loc_text,
                         get_time_str(now_for_record),
                         fmt_time_lap(lap_sec),
@@ -468,45 +472,53 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # ▼▼▼ v1.4.2 追加: 計測地点選択プルダウン ▼▼▼
-                # 選択肢: 1km~10km, Relay, Finish
-                point_options = [f"{i}km" for i in range(1, 11)] + ["Relay", "Finish"]
+                # ▼▼▼ 修正: 左に区間、右に距離 & 両方number_input化 ▼▼▼
+                c_section, c_km = st.columns([1, 1])
                 
-                # 自動提案のデフォルトインデックスを計算
-                default_ix = 0
-                target_label = f"{next_km}km" # デフォルトは次のkm
-                if target_label in point_options:
-                    default_ix = point_options.index(target_label)
+                with c_section:
+                    # 区間選択 (数値入力)
+                    input_section_num = st.number_input("区間", min_value=1, max_value=20, value=next_section_num, step=1)
+                    target_sec_str = f"{input_section_num}区"
+
+                with c_km:
+                    # 距離選択 (数値入力)
+                    input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
+                    target_point_str = f"{input_km}km"
+
+                # 計測ボタン
+                if st.button(f"⏱️ {target_point_str} を記録", type="primary", use_container_width=True):
+                    append_record(target_sec_str, target_point_str)
+                    st.toast(f"{target_point_str}を記録！")
+
+                st.write("") 
                 
-                selected_point = st.selectbox(
-                    "計測地点を選択", 
-                    options=point_options, 
-                    index=default_ix,
-                    key=f"point_select_{len(current_df)}" # keyにデータ長を含めて更新毎にリセット
-                )
-
-                # ▼▼▼ v1.4.2 変更: 計測ボタンはプルダウンの値を使用 ▼▼▼
-                if st.button(f"⏱️ {selected_point} を記録", type="primary", use_container_width=True):
-                    append_record(selected_point)
-                    st.toast(f"{selected_point}地点を記録！")
-
-                # ▼▼▼ v1.4.2 変更: Relay, Finishボタンの配置 ▼▼▼
+                # Relayボタン
                 if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
-                    append_record("Relay")
+                    append_record(f"{current_section_num}区", "Relay")
                     st.success("リレーしました！")
                 
-                st.write("") # 誤操作防止のスペース
-                st.write("")
+                # Undoボタン
+                if st.button("↩️ 元に戻す"):
+                    try:
+                        gc = get_gspread_client()
+                        ws = gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME)
+                        all_vals = ws.get_all_values()
+                        if len(all_vals) > 1:
+                            ws.delete_rows(len(all_vals))
+                            st.cache_data.clear()
+                            st.toast("記録を削除しました")
+                            st.rerun()
+                        else:
+                            st.warning("削除できるデータがありません")
+                    except Exception as e:
+                        st.error(f"Undoエラー: {e}")
+
+                st.write("") 
                 if st.button("🏆 Finish", use_container_width=True):
-                    # Finishの場合は特殊処理が必要だが、append_record関数内では引数loc_textをそのまま記録しているため
-                    # ここでは "Finish" という文字列を渡せば、Location="Finish" として記録される。
-                    # アプリ全体のリロードは append_record 内の st.rerun() で行われる。
-                    append_record("Finish")
+                    append_record(f"{current_section_num}区", "Finish")
 
             show_race_dashboard()
             
-            # --- FinishボタンはFragment内に移動したため、ここからは削除 ---
-
             st.divider()
             with st.expander("📊 計測ログを表示"):
                 st.dataframe(df.iloc[::-1], use_container_width=True)
@@ -515,8 +527,9 @@ if app_mode == "⏱️ 計測モード":
 # ==========================================
 # 2. 閲覧モード (過去ログ & グラフ)
 # ==========================================
+# ▼▼▼ 修正: アイコンを 📈 に変更 ▼▼▼
 elif app_mode == "📈 閲覧モード":
-    st.header("📈 閲覧モード")
+    st.header("📈 過去レース閲覧")
     
     sheet_names = get_sheet_names_cached()
     
@@ -575,8 +588,7 @@ elif app_mode == "📈 閲覧モード":
 elif app_mode == "⚙️ 管理者モード":
     st.header("⚙️ 管理者メニュー")
     
-    # 簡易パスワード認証
-    pwd = ADMIN_PASSWORD
+    pwd = st.text_input("パスワードを入力してください", type="password")
     
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
