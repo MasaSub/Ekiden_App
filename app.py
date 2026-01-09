@@ -495,7 +495,7 @@ elif app_mode == "📈 閲覧モード":
         all_worksheets = sh.worksheets()
         sheet_names = [ws.title for ws in all_worksheets]
         
-        # シート選択 (デフォルトは log)
+        # シート選択 (デフォルトは latest-log)
         selected_sheet = st.selectbox("閲覧するシートを選択", sheet_names, index=0)
         
         if st.button("データを読み込む"):
