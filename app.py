@@ -6,7 +6,7 @@ import streamlit as st
 import pandas as pd
 import math
 import gspread
-import altair as alt # ▼▼▼ v1.4.1 追加: 高度なグラフ描画用 ▼▼▼
+import altair as alt
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -23,13 +23,13 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6e
 WORKSHEET_NAME = "latest-log"
 JST = ZoneInfo("Asia/Tokyo")
 CACHE_TTL_SEC = 1.5
-ADMIN_PASSWORD = "0000" # ▼▼▼ v1.4.1 追加: 管理者用パスワード ▼▼▼
+ADMIN_PASSWORD = "0000"
 
 # ページ設定
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
 
 # ==========================================
-# セッション状態の初期化 (必ず先頭で行う)
+# セッション状態の初期化
 # ==========================================
 if "app_mode" not in st.session_state:
     st.session_state["app_mode"] = "⏱️ 計測モード"
@@ -50,13 +50,11 @@ st.markdown("""
         padding-right: 0.5rem;
     }
     
-    /* サイドバーの背景色をダークに */
     section[data-testid="stSidebar"] {
         background-color: #262730;
         color: white;
     }
     
-    /* サイドバー内のボタンのスタイル調整 */
     section[data-testid="stSidebar"] button {
         text-align: left;
         padding-left: 20px;
@@ -92,15 +90,13 @@ st.markdown("""
         border-radius: 10px;
         width: 100%;
     }
-    /* Primaryボタン(赤)のデザイン */
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B;
         color: white;
-        height: 4.0em; /* メイン画面のボタンは大きく */
+        height: 4.0em;
         font-size: 36px;
         width: 100%;
     }
-    /* サイドバー内のPrimaryボタンはサイズを普通にする */
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
         height: 3em; 
         font-size: 18px;
@@ -117,7 +113,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# タイトル（サイドバーへ移動するか、共通ヘッダーとして残す）
+# タイトル
 st.markdown(f"""
     <h2 style='text-align: center; font-size: 24px; margin-bottom: 2px;'>
         🎽 駅伝けいそくん
@@ -130,10 +126,8 @@ st.markdown(f"""
 # ==========================================
 # 関数定義
 # ==========================================
-# ▼▼▼ v1.4.1 変更: シート名を引数で指定できるように変更 ▼▼▼
 def load_data(conn, sheet_name=WORKSHEET_NAME):
     try:
-        # キャッシュTTLは閲覧モードでは少し長くても良いが、計測モードは短く
         ttl = CACHE_TTL_SEC
         df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=ttl)
         if not df.empty:
@@ -143,11 +137,9 @@ def load_data(conn, sheet_name=WORKSHEET_NAME):
                     df[col] = df[col].astype(str)
         return df
     except Exception as e:
-        # 計測モード以外でエラーが出た場合は静かに空DFを返す
         return pd.DataFrame()
     
-# ▼▼▼ [追加] シート一覧取得をキャッシュする関数 (API制限対策) ▼▼▼
-@st.cache_data(ttl=30) # 60秒間は再通信しない
+@st.cache_data(ttl=30)
 def get_sheet_names_cached():
     try:
         gc = get_gspread_client()
@@ -177,11 +169,9 @@ def parse_time_str(time_str):
     except:
         return now
 
-# ▼▼▼ v1.4.1 追加: グラフ用に時間を秒数(float)に変換する関数 ▼▼▼
 def time_str_to_seconds(time_str):
     try:
         if pd.isna(time_str) or time_str == "": return 0.0
-        # "MM:SS.f" 形式を想定
         if ":" in time_str:
             parts = time_str.split(":")
             if len(parts) == 2: # MM:SS.f
@@ -232,7 +222,6 @@ def show_js_timer(km_sec, sec_sec, split_sec):
     sec_ms = int(sec_sec * 1000)
     split_ms = int(split_sec * 1000)
     
-    # (HTMLコードは長いので省略せずそのまま記載します)
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -313,32 +302,22 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.sidebar.title("メニュー")
 
-# ▼▼▼ v1.4.1 修正: type引数を使って、現在選択中のモードだけを赤(primary)にする ▼▼▼
-# session_stateから現在のモードを取得（デフォルトは計測）
 current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
 
-# 各ボタンのタイプ（色）を決定
 type_measure = "primary" if current_mode == "⏱️ 計測モード" else "secondary"
 type_view    = "primary" if current_mode == "📈 閲覧モード" else "secondary"
 type_admin   = "primary" if current_mode == "⚙️ 管理者モード" else "secondary"
 
-# ボタン描画 (type引数を渡す)
 st.sidebar.button("⏱️ 計測モード", on_click=set_mode, args=("⏱️ 計測モード",), type=type_measure, use_container_width=True)
 st.sidebar.button("📈 閲覧モード", on_click=set_mode, args=("📈 閲覧モード",), type=type_view, use_container_width=True)
 st.sidebar.button("⚙️ 管理者モード", on_click=set_mode, args=("⚙️ 管理者モード",), type=type_admin, use_container_width=True)
 
-# 念のため app_mode 変数を更新
 app_mode = current_mode
 
-# 現在のモードをサイドバー下部に表示（確認用）
-# st.sidebar.divider()
-# st.sidebar.caption(f"現在のモード:\n**{app_mode}**")
-
 # ==========================================
-# 1. 計測モード (v1.4.0のロジックをここに集約)
+# 1. 計測モード
 # ==========================================
 if app_mode == "⏱️ 計測モード":
-    # 常に "log" シートを使用
     df = load_data(conn, WORKSHEET_NAME)
 
     # --- A. レース開始前 ---
@@ -386,7 +365,6 @@ if app_mode == "⏱️ 計測モード":
             st.markdown("### 📊 最終リザルト")
             st.dataframe(df, use_container_width=True)
             
-            # 計測モード内の管理メニュー（アーカイブのみ残す）
             with st.expander("次のレースへ進む"):
                 if st.button("📦 レース終了（ログ保存して次へ）", type="primary"):
                     try:
@@ -406,8 +384,6 @@ if app_mode == "⏱️ 計測モード":
                         st.rerun()
                     except Exception as e:
                         st.error(f"保存エラー: {e}")
-                
-                # ※「デバッグ破棄」ボタンは管理者モードへ移動しました
 
             if st.toggle("🔄 自動更新", value=True, key="auto_reload_finish"):
                 st_autorefresh(interval=10000, key="refresh_finish")
@@ -426,6 +402,7 @@ if app_mode == "⏱️ 計測モード":
                 first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
                 proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
+                # 区間判定
                 current_section_str = str(last_row['Section']) 
                 try: current_section_num = int(current_section_str.replace("区", ""))
                 except: current_section_num = 1
@@ -491,49 +468,44 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                if st.button(f"⏱️ {next_km}km地点 ラップ", type="primary", use_container_width=True):
-                    append_record(f"{next_km}km")
-                    st.toast(f"{next_km}km地点を記録！")
+                # ▼▼▼ v1.4.2 追加: 計測地点選択プルダウン ▼▼▼
+                # 選択肢: 1km~10km, Relay, Finish
+                point_options = [f"{i}km" for i in range(1, 11)] + ["Relay", "Finish"]
+                
+                # 自動提案のデフォルトインデックスを計算
+                default_ix = 0
+                target_label = f"{next_km}km" # デフォルトは次のkm
+                if target_label in point_options:
+                    default_ix = point_options.index(target_label)
+                
+                selected_point = st.selectbox(
+                    "計測地点を選択 (自動補正可)", 
+                    options=point_options, 
+                    index=default_ix,
+                    key=f"point_select_{len(current_df)}" # keyにデータ長を含めて更新毎にリセット
+                )
 
+                # ▼▼▼ v1.4.2 変更: 計測ボタンはプルダウンの値を使用 ▼▼▼
+                if st.button(f"⏱️ {selected_point} を記録", type="primary", use_container_width=True):
+                    append_record(selected_point)
+                    st.toast(f"{selected_point}地点を記録！")
+
+                # ▼▼▼ v1.4.2 変更: Relay, Finishボタンの配置 ▼▼▼
+                st.write("") # スペース
                 if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
                     append_record("Relay")
                     st.success("リレーしました！")
+                
+                st.write("") # 誤操作防止のスペース
+                if st.button("🏆 Finish", use_container_width=True):
+                    # Finishの場合は特殊処理が必要だが、append_record関数内では引数loc_textをそのまま記録しているため
+                    # ここでは "Finish" という文字列を渡せば、Location="Finish" として記録される。
+                    # アプリ全体のリロードは append_record 内の st.rerun() で行われる。
+                    append_record("Finish")
 
             show_race_dashboard()
             
-            if st.button("🏆 Finish", use_container_width=True):
-                now_for_record = datetime.now(JST)
-                last_row = df.iloc[-1]
-                last_time_obj = parse_time_str(last_row['Time'])
-                first_time_obj = parse_time_str(df.iloc[0]['Time'])
-                proj_name = df.iloc[0]['Race'] if 'Race' in df.columns else "Unknown"
-
-                current_section_str = str(last_row['Section']) 
-                try: current_section_num = int(current_section_str.replace("区", ""))
-                except: current_section_num = 1
-                if str(last_row['Location']) == "Relay":
-                    next_section_num = current_section_num + 1
-                else:
-                    next_section_num = current_section_num
-
-                lap_sec = (now_for_record - last_time_obj).total_seconds()
-                total_sec = (now_for_record - first_time_obj).total_seconds()
-                section_start_obj = get_section_start_time(df, next_section_num)
-                section_lap_sec = (now_for_record - section_start_obj).total_seconds() if section_start_obj else 0
-
-                values = [
-                    f"{next_section_num}区",
-                    "Finish",
-                    get_time_str(now_for_record),
-                    fmt_time_lap(lap_sec),
-                    fmt_time_lap(section_lap_sec),
-                    fmt_time(total_sec),
-                    proj_name
-                ]
-                gc = get_gspread_client()
-                gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME).append_row(values, value_input_option='USER_ENTERED')
-                st.cache_data.clear()
-                st.rerun()
+            # --- FinishボタンはFragment内に移動したため、ここからは削除 ---
 
             st.divider()
             with st.expander("📊 計測ログを表示"):
@@ -546,41 +518,29 @@ if app_mode == "⏱️ 計測モード":
 elif app_mode == "📈 閲覧モード":
     st.header("📈 閲覧モード")
     
-    # ▼▼▼ 修正: キャッシュ付き関数を使用 ▼▼▼
     sheet_names = get_sheet_names_cached()
     
     if sheet_names:
-        # シート選択 (デフォルトは latest-log)
-        # リストに 'log' があればそれを初期値に、なければ先頭に
         default_index = 0
         if WORKSHEET_NAME in sheet_names:
             default_index = sheet_names.index(WORKSHEET_NAME)
         
-        # シート選択 (デフォルトは latest-log)
-        selected_sheet = st.selectbox("閲覧するレースを選択", sheet_names, index=0)
+        selected_sheet = st.selectbox("閲覧するシートを選択", sheet_names, index=0)
         
         if st.button("データを読み込む"):
-            # 選択されたシートのデータを読み込む
-            # st.cache_dataを効かせるため、conn.readを使うが、ttlは少し長めに
             view_df = load_data(conn, selected_sheet)
             
             if not view_df.empty:
                 st.write(f"### {selected_sheet} の記録")
                 
-                # ▼▼▼ v1.4.1 追加: グラフ可視化 ▼▼▼
                 st.subheader("📈 ペース推移")
                 
-                # ▼▼▼ v1.4.1 変更: KM-Lapを使用し、X軸を通算indexにして連続表示する ▼▼▼
                 graph_df = view_df.copy()
-                # SEC-LapではなくKM-Lapを使用
                 graph_df['Seconds'] = graph_df['KM-Lap'].apply(time_str_to_seconds)
-                # スタート地点を除外
                 graph_df = graph_df[graph_df['Location'] != 'Start']
                 
-                # 連番（Seq）を振ってX軸を連続させる
                 graph_df = graph_df.reset_index(drop=True)
                 graph_df['Seq'] = graph_df.index + 1
-                # ツールチップ用にラベル作成
                 graph_df['Label'] = graph_df['Section'] + " - " + graph_df['Location']
 
                 if not graph_df.empty:
@@ -588,7 +548,6 @@ elif app_mode == "📈 閲覧モード":
                     graph_df['TimeObj'] = graph_df['Seconds'].apply(lambda s: base_date + timedelta(seconds=s))
                     
                     chart = alt.Chart(graph_df).mark_line(point=True, color='#4bd6ff').encode(
-                        # X軸をSeq（連番）にして連続させる。タイトルは通過ポイントとする
                         x=alt.X('Seq', title='通過ポイント (順序)'),
                         y=alt.Y('TimeObj', title='キロラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
                         tooltip=['Label', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
@@ -617,7 +576,7 @@ elif app_mode == "⚙️ 管理者モード":
     st.header("⚙️ 管理者メニュー")
     
     # 簡易パスワード認証
-    pwd = ADMIN_PASSWORD # st.text_input("パスワードを入力してください", type="password")
+    pwd = ADMIN_PASSWORD
     
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
@@ -625,7 +584,6 @@ elif app_mode == "⚙️ 管理者モード":
         st.write("### 🚨 デバッグ・緊急操作エリア")
         st.warning("※ここでの操作は取り消せません。慎重に行ってください。")
         
-        # ▼▼▼ v1.4.1: デバッグ用破棄ボタンを移動 ▼▼▼
         if st.button("🗑️ [デバッグ] logデータを強制破棄 (アーカイブなし)"):
             try:
                 gc = get_gspread_client()
