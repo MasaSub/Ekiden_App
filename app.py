@@ -35,7 +35,7 @@ st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout=
 current_mode = st.session_state["app_mode"]
 button_css = ""
 
-# ▼▼▼ v1.4.3 追加: 選択中のボタンだけ赤くするCSS ▼▼▼
+# ▼▼▼ v1.4.1 追加: 選択中のボタンだけ赤くするCSS ▼▼▼
 # サイドバーのボタンは上から順に nth-of-type(1), (2), (3) となる性質を利用
 if current_mode == "⏱️ 計測モード":
     button_css = """
@@ -65,22 +65,19 @@ elif current_mode == "⚙️ 管理者モード":
     }
     """
 
-st.markdown("""
+st.markdown(f"""
     <style>
-    .stApp { overflow-x: hidden; }
-    .block-container {
+    .stApp {{ overflow-x: hidden; }}
+    .block-container {{
         padding-top: 2.0rem;
         padding-bottom: 5rem;
         padding-left: 0.5rem;
         padding-right: 0.5rem;
-    }
-    /* ▼▼▼ 修正: サイドバーをダークモード色に変更 ▼▼▼ */
-    section[data-testid="stSidebar"] {
-        background-color: #262730; /* 濃いグレー(ほぼ黒) */
-        color: white; /* 文字色を白に */
-    }
-            
-    /* サイドバーのボタン基本スタイル */
+    }}
+    section[data-testid="stSidebar"] {{
+        background-color: #262730;
+        color: white;
+    }}
     section[data-testid="stSidebar"] button {{
         background-color: transparent;
         color: #eee;
@@ -94,22 +91,19 @@ st.markdown("""
         border-color: #FF4B4B;
         color: #FF4B4B;
     }}
-    
-    /* ▼▼▼ ここに動的に生成した「アクティブボタン用CSS」を埋め込む ▼▼▼ */
     {button_css}
-            
-    div[data-testid="stHorizontalBlock"] {
+    div[data-testid="stHorizontalBlock"] {{
         display: grid !important;
         grid-template-columns: 1fr auto !important;
         gap: 10px !important;
         align-items: center !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) {
+    }}
+    div[data-testid="column"]:nth-of-type(2) {{
         display: flex !important;
         justify-content: flex-end !important;
         width: auto !important;
-    }
-    div[data-testid="stHorizontalBlock"] button {
+    }}
+    div[data-testid="stHorizontalBlock"] button {{
         height: 2.5em !important;
         width: 3em !important;
         padding: 0px !important;
@@ -117,29 +111,29 @@ st.markdown("""
         border-radius: 8px !important;
         line-height: 1 !important;
         float: right !important;
-    }
-    div.stButton > button {
+    }}
+    div.stButton > button {{
         height: 3em;
         font-size: 18px;
         font-weight: bold;
         border-radius: 10px;
         width: 100%;
-    }
-    div.stButton > button[kind="primary"] {
+    }}
+    div.stButton > button[kind="primary"] {{
         background-color: #FF4B4B;
         color: white;
         height: 4.0em;
         font-size: 36px;
         width: 100%;
-    }
-    h3 {
+    }}
+    h3 {{
         padding: 0px;
         margin: 0px;
         font-size: 1.3rem !important;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -576,28 +570,30 @@ elif app_mode == "📈 閲覧モード":
                 st.write(f"### {selected_sheet} の記録")
                 
                 # ▼▼▼ v1.4.1 追加: グラフ可視化 ▼▼▼
-                st.subheader("📈 区間ペース推移")
+                st.subheader("📈 ペース推移")
                 
-                # グラフ用にデータを加工
+                # ▼▼▼ v1.4.4 変更: KM-Lapを使用し、X軸を通算indexにして連続表示する ▼▼▼
                 graph_df = view_df.copy()
-                # 'SEC-Lap' を秒数に変換して 'Seconds' 列を作る
-                graph_df['Seconds'] = graph_df['SEC-Lap'].apply(time_str_to_seconds)
-                
-                # 'Location' が 'Start' の行を除外
+                # SEC-LapではなくKM-Lapを使用
+                graph_df['Seconds'] = graph_df['KM-Lap'].apply(time_str_to_seconds)
+                # スタート地点を除外
                 graph_df = graph_df[graph_df['Location'] != 'Start']
                 
+                # 連番（Seq）を振ってX軸を連続させる
+                graph_df = graph_df.reset_index(drop=True)
+                graph_df['Seq'] = graph_df.index + 1
+                # ツールチップ用にラベル作成
+                graph_df['Label'] = graph_df['Section'] + " - " + graph_df['Location']
+
                 if not graph_df.empty:
-                    # ▼▼▼ v1.4.2 変更: Altairで m:ss 表示の折れ線グラフを描画 ▼▼▼
-                    # 1. 秒数を「基準日(2000/1/1) + 秒数」のDatetime型に変換
                     base_date = datetime(2000, 1, 1)
                     graph_df['TimeObj'] = graph_df['Seconds'].apply(lambda s: base_date + timedelta(seconds=s))
                     
                     chart = alt.Chart(graph_df).mark_line(point=True, color='#4bd6ff').encode(
-                        x=alt.X('Location', sort=None, title='地点'),
-                        # 2. 軸のフォーマットを '%M:%S' (分:秒) に指定
-                        y=alt.Y('TimeObj', title='区間ラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
-                        # 3. ツールチップもフォーマット
-                        tooltip=['Location', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
+                        # X軸をSeq（連番）にして連続させる。タイトルは通過ポイントとする
+                        x=alt.X('Seq', title='通過ポイント (順序)'),
+                        y=alt.Y('TimeObj', title='キロラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
+                        tooltip=['Label', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
                     ).properties(
                         height=400
                     ).interactive()
