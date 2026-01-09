@@ -61,7 +61,7 @@ st.markdown("""
         width: 100%;
     }
 
-    /* ヘッダーの更新ボタン削除に伴い、通常ボタンのスタイル調整 */
+    /* 通常ボタンの基本スタイル */
     div.stButton > button {
         height: 3em;
         font-size: 18px;
@@ -84,10 +84,10 @@ st.markdown("""
         font-size: 18px;
     }
 
-    /* ▼▼▼ 修正: Undoボタン(4番目のボタン)をグレーにする ▼▼▼ */
+    /* ▼▼▼ Undoボタン(4番目のボタン)をグレーにする ▼▼▼ */
     /* 順序: 1.記録(Red) 2.Relay 3.Finish 4.Undo */
     div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(4) > button {
-        background-color: #4F4F4F;
+        background-color: #4F4F4F; /* 濃いグレー */
         color: white;
         border: 1px solid #666;
     }
@@ -105,20 +105,10 @@ st.markdown("""
     }
     div[data-testid="stNumberInput"] button {
         height: 3rem !important;
+        width: 3rem !important; /* ボタン幅も確保 */
     }
 
-    /* スマホでもカラムを横並びに強制するCSS */
-    @media (max-width: 640px) {
-        div[data-testid="stHorizontalBlock"] {
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-        }
-        div[data-testid="column"] {
-            width: auto !important;
-            flex: 1 !important;
-            min-width: 0 !important;
-        }
-    }
+    /* ▼▼▼ 修正: スマホ用強制横並びCSSを削除し、自然な縦並び(レスポンシブ)に任せる ▼▼▼ */
 
     h3 {
         padding: 0px;
@@ -417,12 +407,10 @@ if app_mode == "⏱️ 計測モード":
                 first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
                 proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
-                # 現在の区間番号を取得
                 current_section_str = str(last_row['Section']) 
                 try: current_section_num = int(current_section_str.replace("区", ""))
                 except: current_section_num = 1
 
-                # 次の予測
                 if last_point == "Relay":
                     next_section_num = current_section_num + 1
                     next_km = 1
@@ -482,7 +470,7 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # ▼▼▼ 修正: 比率なしの均等カラム (st.columns(2)) に変更 ▼▼▼
+                # ▼▼▼ 修正: 単純なst.columns(2)にして、スマホは自動で縦並びにする ▼▼▼
                 c_section, c_km = st.columns(2)
                 
                 with c_section:
@@ -503,7 +491,7 @@ if app_mode == "⏱️ 計測モード":
                     append_record(f"{current_section_num}区", "Relay")
                     st.success("リレーしました！")
                 
-                # ▼▼▼ 修正: ボタン配置入れ替え (Relay -> Finish -> Undo) ▼▼▼
+                # ▼▼▼ 修正: 配置入れ替え (Finish -> Undo) ▼▼▼
                 if st.button("🏆 Finish", use_container_width=True):
                     append_record(f"{current_section_num}区", "Finish")
 
