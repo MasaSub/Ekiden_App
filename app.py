@@ -84,13 +84,14 @@ st.markdown("""
         font-size: 18px;
     }
 
-    /* Undoボタン(3番目のボタン)をグレーにする */
-    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(3) > button {
+    /* ▼▼▼ 修正: Undoボタン(4番目のボタン)をグレーにする ▼▼▼ */
+    /* 順序: 1.記録(Red) 2.Relay 3.Finish 4.Undo */
+    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(4) > button {
         background-color: #4F4F4F;
         color: white;
         border: 1px solid #666;
     }
-    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(3) > button:hover {
+    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(4) > button:hover {
         background-color: #666;
         border-color: #888;
         color: white;
@@ -106,7 +107,7 @@ st.markdown("""
         height: 3rem !important;
     }
 
-    /* ▼▼▼ 追加: スマホでもカラムを横並びに強制するCSS ▼▼▼ */
+    /* スマホでもカラムを横並びに強制するCSS */
     @media (max-width: 640px) {
         div[data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
@@ -416,10 +417,12 @@ if app_mode == "⏱️ 計測モード":
                 first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
                 proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
+                # 現在の区間番号を取得
                 current_section_str = str(last_row['Section']) 
                 try: current_section_num = int(current_section_str.replace("区", ""))
                 except: current_section_num = 1
 
+                # 次の予測
                 if last_point == "Relay":
                     next_section_num = current_section_num + 1
                     next_km = 1
@@ -441,7 +444,6 @@ if app_mode == "⏱️ 計測モード":
                 
                 header_text = f"🏃‍♂️ {next_section_num}区 {current_dist_val} ~ {current_dist_val+1} km 走行中📣"
                 
-                # ▼▼▼ 修正: 手動更新ボタン削除に伴いシンプル化 ▼▼▼
                 st.markdown(f"### {header_text}")
                 st.caption(f"📁 Race: {proj_name}")
 
@@ -480,8 +482,8 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # 区間(左 2) : 距離(右 3) の比率
-                c_section, c_km = st.columns([2, 3])
+                # ▼▼▼ 修正: 比率なしの均等カラム (st.columns(2)) に変更 ▼▼▼
+                c_section, c_km = st.columns(2)
                 
                 with c_section:
                     input_section_num = st.number_input("区間", min_value=1, max_value=20, value=next_section_num, step=1)
@@ -501,6 +503,10 @@ if app_mode == "⏱️ 計測モード":
                     append_record(f"{current_section_num}区", "Relay")
                     st.success("リレーしました！")
                 
+                # ▼▼▼ 修正: ボタン配置入れ替え (Relay -> Finish -> Undo) ▼▼▼
+                if st.button("🏆 Finish", use_container_width=True):
+                    append_record(f"{current_section_num}区", "Finish")
+
                 if st.button("↩️ 元に戻す", use_container_width=True):
                     try:
                         gc = get_gspread_client()
@@ -515,10 +521,6 @@ if app_mode == "⏱️ 計測モード":
                             st.warning("削除できるデータがありません")
                     except Exception as e:
                         st.error(f"Undoエラー: {e}")
-
-                st.write("") 
-                if st.button("🏆 Finish", use_container_width=True):
-                    append_record(f"{current_section_num}区", "Finish")
 
             show_race_dashboard()
             
