@@ -19,7 +19,7 @@ import streamlit.components.v1 as components
 VERSION = "ver 1.4.1"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
-WORKSHEET_NAME = "log"
+WORKSHEET_NAME = "latest-log"
 JST = ZoneInfo("Asia/Tokyo")
 CACHE_TTL_SEC = 1.5
 ADMIN_PASSWORD = "0000" # ▼▼▼ v1.4.1 追加: 管理者用パスワード ▼▼▼
@@ -539,7 +539,7 @@ elif app_mode == "⚙️ 管理者モード":
     st.header("⚙️ 管理者メニュー")
     
     # 簡易パスワード認証
-    pwd = st.text_input("パスワードを入力してください", type="password")
+    pwd = ADMIN_PASSWORD # st.text_input("パスワードを入力してください", type="password")
     
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
