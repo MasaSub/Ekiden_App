@@ -553,10 +553,22 @@ elif app_mode == "📈 閲覧モード":
                 graph_df = graph_df[graph_df['Location'] != 'Start']
                 
                 if not graph_df.empty:
-                    # 棒グラフでラップタイムを表示
-                    # ▼▼▼ 修正: 折れ線グラフに変更 ▼▼▼
-                    st.line_chart(graph_df, x='Location', y='Seconds', color='#4bd6ff')
-                    st.caption("※縦軸は区間ラップ(秒)")
+                    # ▼▼▼ v1.4.2 変更: Altairで m:ss 表示の折れ線グラフを描画 ▼▼▼
+                    # 1. 秒数を「基準日(2000/1/1) + 秒数」のDatetime型に変換
+                    base_date = datetime(2000, 1, 1)
+                    graph_df['TimeObj'] = graph_df['Seconds'].apply(lambda s: base_date + timedelta(seconds=s))
+                    
+                    chart = alt.Chart(graph_df).mark_line(point=True, color='#4bd6ff').encode(
+                        x=alt.X('Location', sort=None, title='地点'),
+                        # 2. 軸のフォーマットを '%M:%S' (分:秒) に指定
+                        y=alt.Y('TimeObj', title='区間ラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
+                        # 3. ツールチップもフォーマット
+                        tooltip=['Location', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
+                    ).properties(
+                        height=400
+                    ).interactive()
+                    
+                    st.altair_chart(chart, use_container_width=True)
                 else:
                     st.info("グラフ表示用のデータがありません")
 
