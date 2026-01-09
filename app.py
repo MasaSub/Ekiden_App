@@ -84,19 +84,7 @@ st.markdown("""
         font-size: 18px;
     }
 
-    /* Undoボタン(4番目のボタン)をグレーにする */
-    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(4) > button {
-        background-color: #4F4F4F;
-        color: white;
-        border: 1px solid #666;
-    }
-    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(4) > button:hover {
-        background-color: #666;
-        border-color: #888;
-        color: white;
-    }
-
-    /* 数値入力 */
+    /* 数値入力(st.number_input)を見やすく大きくする */
     div[data-testid="stNumberInput"] input {
         font-size: 1.2rem !important;
         font-weight: bold !important;
@@ -404,12 +392,10 @@ if app_mode == "⏱️ 計測モード":
                 first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
                 proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
-                # 現在の区間番号を取得
                 current_section_str = str(last_row['Section']) 
                 try: current_section_num = int(current_section_str.replace("区", ""))
                 except: current_section_num = 1
 
-                # 次の予測
                 if last_point == "Relay":
                     next_section_num = current_section_num + 1
                     next_km = 1
@@ -469,19 +455,13 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # 区間選択を削除し、距離入力のみを全幅表示
-                c_section, c_km = st.columns(2)
-                
-                with c_section:
-                    input_section_num = st.number_input("区間", min_value=1, max_value=20, value=next_section_num, step=1)
-                    target_sec_str = f"{input_section_num}区"
-
-                with c_km:
-                    input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
-                    target_point_str = f"{input_km}km"
+                # ▼▼▼ v1.4.3: 区間選択なし、距離入力(number_input)のみ全幅表示 ▼▼▼
+                input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
+                target_point_str = f"{input_km}km"
 
                 if st.button(f"⏱️ {target_point_str} を記録", type="primary", use_container_width=True):
-                    append_record(target_sec_str, target_point_str)
+                    # 区間は自動計算値を使用
+                    append_record(f"{next_section_num}区", target_point_str)
                     st.toast(f"{target_point_str}を記録！")
 
                 st.write("") 
@@ -493,6 +473,7 @@ if app_mode == "⏱️ 計測モード":
                 if st.button("🏆 Finish", use_container_width=True):
                     append_record(f"{current_section_num}区", "Finish")
 
+                # ▼▼▼ v1.4.3: Undoボタン (標準スタイル) ▼▼▼
                 if st.button("↩️ 元に戻す", use_container_width=True):
                     try:
                         gc = get_gspread_client()
@@ -550,25 +531,22 @@ elif app_mode == "📈 閲覧モード":
                     base_date = datetime(2000, 1, 1)
                     graph_df['TimeObj'] = graph_df['Seconds'].apply(lambda s: base_date + timedelta(seconds=s))
                     
-                    # ▼▼▼ v1.4.3 追加: 直近15点にズームするためのドメイン計算 ▼▼▼
+                    # ▼▼▼ v1.4.3: 直近15点ズーム & ジグザグ解消 & 横スクロール限定 ▼▼▼
                     labels = graph_df['Label'].tolist()
                     zoom_domain = labels[-15:] if len(labels) > 15 else labels
 
                     chart = alt.Chart(graph_df).mark_line(point=True, color='#4bd6ff').encode(
-                        # ▼▼▼ v1.4.3 変更: X軸をラベルに変更し、Sequenceでソート ▼▼▼
                         x=alt.X('Label', 
                                 title='地点', 
                                 sort=alt.EncodingSortField(field="Seq", order="ascending"),
-                                scale=alt.Scale(domain=zoom_domain) # 初期表示を直近に絞る
+                                scale=alt.Scale(domain=zoom_domain)
                         ),
                         y=alt.Y('TimeObj', title='キロラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
-                        # ▼▼▼ v1.4.3 追加: 線をSequence順に結ぶ (ジグザグ解消) ▼▼▼
-                        order='Seq',
+                        order='Seq', # 線を順番通りに結ぶ
                         tooltip=['Label', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
                     ).properties(
                         height=400
-                    # ▼▼▼ v1.4.3 変更: 横スクロールのみ有効化 ▼▼▼
-                    ).interactive(bind_y=False)
+                    ).interactive(bind_y=False) # 縦スクロール無効化
                     
                     st.altair_chart(chart, use_container_width=True)
                 else:
