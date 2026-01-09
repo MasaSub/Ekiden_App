@@ -100,8 +100,8 @@ def load_data(conn):
     try:
         df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, ttl=CACHE_TTL_SEC)
         if not df.empty:
-            # ▼▼▼ v1.4.0 変更: 'Project' を文字列化対象に追加 ▼▼▼
-            cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split', 'Project']
+            # ▼▼▼ v1.4.0 変更: 'Race' を文字列化対象に追加 ▼▼▼
+            cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split', 'Race']
             for col in cols_to_str:
                 if col in df.columns:
                     df[col] = df[col].astype(str)
@@ -251,10 +251,10 @@ df = load_data(conn)
 if df.empty or len(df) == 0:
     st.info("レース開始前")
     
-    # ▼▼▼ v1.4.0 追加: プロジェクト名の入力欄 ▼▼▼
+    # ▼▼▼ v1.4.0 追加: レース名の入力欄 ▼▼▼
     # デフォルト値は今日の日付を入れる
     default_proj_name = f"Race_{datetime.now(JST).strftime('%Y%m%d')}"
-    project_name_input = st.text_input("📁 プロジェクト名 (記録用)", value=default_proj_name)
+    Race_name_input = st.text_input("📁 レース名", value=default_proj_name)
     
     if st.button("🔫 レーススタート (1区)", type="primary", use_container_width=True):
         now = datetime.now(JST)
@@ -265,7 +265,7 @@ if df.empty or len(df) == 0:
             "KM-Lap": "00:00:00.0", 
             "SEC-Lap": "00:00:00.0", 
             "Split": "0:00:00",
-            "Project": project_name_input # ▼▼▼ v1.4.0 追加: プロジェクト名も保存 ▼▼▼
+            "Race": Race_name_input # ▼▼▼ v1.4.0 追加: レース名も保存 ▼▼▼
         }])
         conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
         st.cache_data.clear()
@@ -285,9 +285,9 @@ else:
     last_row = df.iloc[-1]
     last_point = str(last_row['Location'])
 
-    # ▼▼▼ v1.4.0 追加: プロジェクト名の取得 ▼▼▼
-    # データフレームに 'Project' 列があれば取得、なければ "Unknown"
-    current_project_name = df.iloc[0]['Project'] if 'Project' in df.columns else "Unknown"
+    # ▼▼▼ v1.4.0 追加: レース名の取得 ▼▼▼
+    # データフレームに 'Race' 列があれば取得、なければ "Unknown"
+    current_Race_name = df.iloc[0]['Race'] if 'Race' in df.columns else "Unknown"
     
     # 1. フィニッシュ済み
     if last_point == "Finish":
@@ -295,8 +295,8 @@ else:
         st.metric("🏁 フィニッシュ時刻", last_row['Time'])
         st.metric("⏱️ 最終タイム", last_row['Split'])
         
-        # ▼▼▼ v1.4.0 追加: プロジェクト名の表示 ▼▼▼
-        st.caption(f"📁 プロジェクト: {current_project_name}")
+        # ▼▼▼ v1.4.0 追加: レース名の表示 ▼▼▼
+        st.caption(f"📁 レース: {current_Race_name}")
 
         st.divider()
         st.markdown("### 📊 最終リザルト")
@@ -315,7 +315,7 @@ else:
                     
                     # 1. 現在の 'log' シートを取得してリネーム (退避)
                     # 名前が重複しないように日時をつける
-                    archive_name = f"{current_project_name}_{datetime.now(JST).strftime('%Y%m%d_%H%M')}"
+                    archive_name = f"{current_Race_name}_{datetime.now(JST).strftime('%Y%m%d_%H%M')}"
                     worksheet = sh.worksheet(WORKSHEET_NAME)
                     worksheet.update_title(archive_name)
                     
@@ -324,7 +324,7 @@ else:
                     
                     # 3. ヘッダーを書き込む (次のレース用)
                     # ※conn.updateで上書きされるので必須ではないが、念のため
-                    new_ws.append_row(["Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Project"])
+                    new_ws.append_row(["Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Race"])
                     
                     st.cache_data.clear()
                     st.toast(f"ログを「{archive_name}」として保存しました！")
@@ -351,8 +351,8 @@ else:
             last_time_obj = parse_time_str(last_row['Time'])
             first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
             
-            # ▼▼▼ v1.4.0 追加: プロジェクト名の取得(Fragment内) ▼▼▼
-            proj_name = current_df.iloc[0]['Project'] if 'Project' in current_df.columns else "Unknown"
+            # ▼▼▼ v1.4.0 追加: レース名の取得(Fragment内) ▼▼▼
+            proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
             # 区間判定
             current_section_str = str(last_row['Section']) 
@@ -384,8 +384,8 @@ else:
             c_title, c_btn = st.columns([1, 1])
             with c_title:
                 st.markdown(f"### {header_text}")
-                # ▼▼▼ v1.4.0 追加: プロジェクト名表示 ▼▼▼
-                st.caption(f"📁 Project: {proj_name}")
+                # ▼▼▼ v1.4.0 追加: レース名表示 ▼▼▼
+                st.caption(f"📁 Race: {proj_name}")
             with c_btn:
                 if st.button("🔄", help="即時更新"):
                     st.cache_data.clear()
@@ -418,7 +418,7 @@ else:
                     fmt_time_lap(lap_sec),
                     fmt_time_lap(section_lap_sec),
                     fmt_time(total_sec),
-                    proj_name # ▼▼▼ v1.4.0 追加: プロジェクト名も保存 ▼▼▼
+                    proj_name # ▼▼▼ v1.4.0 追加: レース名も保存 ▼▼▼
                 ]
                 # gspreadクライアントを取得してappend_row
                 gc = get_gspread_client()
@@ -446,8 +446,8 @@ else:
             last_time_obj = parse_time_str(last_row['Time'])
             first_time_obj = parse_time_str(df.iloc[0]['Time'])
             
-            # ▼▼▼ v1.4.0 追加: プロジェクト名取得 ▼▼▼
-            proj_name = df.iloc[0]['Project'] if 'Project' in df.columns else "Unknown"
+            # ▼▼▼ v1.4.0 追加: レース名取得 ▼▼▼
+            proj_name = df.iloc[0]['Race'] if 'Race' in df.columns else "Unknown"
 
             # 次の区間等の再計算
             current_section_str = str(last_row['Section']) 
@@ -470,7 +470,7 @@ else:
                 fmt_time_lap(lap_sec),
                 fmt_time_lap(section_lap_sec),
                 fmt_time(total_sec),
-                proj_name # ▼▼▼ v1.4.0 追加: プロジェクト名も保存 ▼▼▼
+                proj_name # ▼▼▼ v1.4.0 追加: レース名も保存 ▼▼▼
             ]
             # gspreadクライアントを取得してappend_row
             gc = get_gspread_client()
