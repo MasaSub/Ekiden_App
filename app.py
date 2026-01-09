@@ -29,12 +29,21 @@ ADMIN_PASSWORD = "0000" # ▼▼▼ v1.4.1 追加: 管理者用パスワード �
 st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
 
 # ==========================================
-# CSSデザイン定義
+# セッション状態の初期化 (必ず先頭で行う)
 # ==========================================
-# 現在のモードに応じて、サイドバーのボタンの色を変えるCSSを作成
-current_mode = st.session_state["app_mode"]
-button_css = ""
+if "app_mode" not in st.session_state:
+    st.session_state["app_mode"] = "⏱️ 計測モード"
 
+def set_mode(mode):
+    st.session_state["app_mode"] = mode
+
+# ==========================================
+# CSSデザイン定義 & 動的スタイル適用
+# ==========================================
+# ▼▼▼ v1.4.5 修正: KeyError対策 (.getを使うことで初期化漏れでも落ちないようにする) ▼▼▼
+current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
+
+button_css = ""
 # ▼▼▼ v1.4.1 追加: 選択中のボタンだけ赤くするCSS ▼▼▼
 # サイドバーのボタンは上から順に nth-of-type(1), (2), (3) となる性質を利用
 if current_mode == "⏱️ 計測モード":
@@ -321,19 +330,13 @@ def show_js_timer(km_sec, sec_sec, split_sec):
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# ▼▼▼ v1.4.1 変更: サイドバーをボタン切り替え & SessionState管理に変更 ▼▼▼
-if "app_mode" not in st.session_state:
-    st.session_state["app_mode"] = "⏱️ 計測モード"
-
-def set_mode(mode):
-    st.session_state["app_mode"] = mode
-
 st.sidebar.title("メニュー")
 st.sidebar.button("⏱️ 計測モード", on_click=set_mode, args=("⏱️ 計測モード",), use_container_width=True)
 st.sidebar.button("📈 閲覧モード", on_click=set_mode, args=("📈 閲覧モード",), use_container_width=True)
 st.sidebar.button("⚙️ 管理者モード", on_click=set_mode, args=("⚙️ 管理者モード",), use_container_width=True)
 
-app_mode = st.session_state["app_mode"]
+# 現在のモード再取得 (念のため)
+app_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
 
 # 現在のモードをサイドバー下部に表示（確認用）
 # st.sidebar.divider()
