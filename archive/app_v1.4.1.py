@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.4.2 date = 2026/01/09
+# version = 1.4.1 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.4.2"
+VERSION = "ver 1.4.1"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_NAME = "latest-log"
