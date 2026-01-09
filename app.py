@@ -40,15 +40,21 @@ def set_mode(mode):
 # ==========================================
 # CSSデザイン定義 & 動的スタイル適用
 # ==========================================
-# ▼▼▼ v1.4.5 修正: KeyError対策 (.getを使うことで初期化漏れでも落ちないようにする) ▼▼▼
+# 現在のモードを取得
 current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
 
+# ▼▼▼ v1.4.1 修正: ボタンの親コンテナ(element-container)の順番で指定する ▼▼▼
+# サイドバーの構成: 
+# 1. Title("メニュー") -> element-container:nth-of-type(1)
+# 2. Button("計測")   -> element-container:nth-of-type(2)
+# 3. Button("閲覧")   -> element-container:nth-of-type(3)
+# 4. Button("管理")   -> element-container:nth-of-type(4)
+
 button_css = ""
-# ▼▼▼ v1.4.1 追加: 選択中のボタンだけ赤くするCSS ▼▼▼
-# サイドバーのボタンは上から順に nth-of-type(1), (2), (3) となる性質を利用
 if current_mode == "⏱️ 計測モード":
+    # 2番目のコンテナ(=計測ボタン)を赤くする
     button_css = """
-    section[data-testid="stSidebar"] .stButton:nth-of-type(1) button {
+    section[data-testid="stSidebar"] div[data-testid="element-container"]:nth-of-type(2) button {
         background-color: #FF4B4B !important;
         color: white !important;
         border-color: #FF4B4B !important;
@@ -56,8 +62,9 @@ if current_mode == "⏱️ 計測モード":
     }
     """
 elif current_mode == "📈 閲覧モード":
+    # 3番目のコンテナ(=閲覧ボタン)を赤くする
     button_css = """
-    section[data-testid="stSidebar"] .stButton:nth-of-type(2) button {
+    section[data-testid="stSidebar"] div[data-testid="element-container"]:nth-of-type(3) button {
         background-color: #FF4B4B !important;
         color: white !important;
         border-color: #FF4B4B !important;
@@ -65,8 +72,9 @@ elif current_mode == "📈 閲覧モード":
     }
     """
 elif current_mode == "⚙️ 管理者モード":
+    # 4番目のコンテナ(=管理ボタン)を赤くする
     button_css = """
-    section[data-testid="stSidebar"] .stButton:nth-of-type(3) button {
+    section[data-testid="stSidebar"] div[data-testid="element-container"]:nth-of-type(4) button {
         background-color: #FF4B4B !important;
         color: white !important;
         border-color: #FF4B4B !important;
