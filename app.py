@@ -145,6 +145,16 @@ def load_data(conn, sheet_name=WORKSHEET_NAME):
     except Exception as e:
         # 計測モード以外でエラーが出た場合は静かに空DFを返す
         return pd.DataFrame()
+    
+# ▼▼▼ [追加] シート一覧取得をキャッシュする関数 (API制限対策) ▼▼▼
+@st.cache_data(ttl=30) # 60秒間は再通信しない
+def get_sheet_names_cached():
+    try:
+        gc = get_gspread_client()
+        sh = gc.open_by_url(SHEET_URL)
+        return [ws.title for ws in sh.worksheets()]
+    except Exception as e:
+        return []
 
 def get_gspread_client():
     scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -536,12 +546,15 @@ if app_mode == "⏱️ 計測モード":
 elif app_mode == "📈 閲覧モード":
     st.header("📈 閲覧モード")
     
-    # 全シート名の取得
-    try:
-        gc = get_gspread_client()
-        sh = gc.open_by_url(SHEET_URL)
-        all_worksheets = sh.worksheets()
-        sheet_names = [ws.title for ws in all_worksheets]
+    # ▼▼▼ 修正: キャッシュ付き関数を使用 ▼▼▼
+    sheet_names = get_sheet_names_cached()
+    
+    if sheet_names:
+        # シート選択 (デフォルトは log)
+        # リストに 'log' があればそれを初期値に、なければ先頭に
+        default_index = 0
+        if WORKSHEET_NAME in sheet_names:
+            default_index = sheet_names.index(WORKSHEET_NAME)
         
         # シート選択 (デフォルトは latest-log)
         selected_sheet = st.selectbox("閲覧するシートを選択", sheet_names, index=0)
@@ -592,9 +605,9 @@ elif app_mode == "📈 閲覧モード":
 
             else:
                 st.warning("データが空か、読み込めませんでした。")
-                
-    except Exception as e:
-        st.error(f"シート一覧の取得に失敗しました: {e}")
+                        
+    else:
+        st.error("シート一覧を取得できませんでした (API制限の可能性があります。しばらく待って再読み込みしてください)")
 
 
 # ==========================================
