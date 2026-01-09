@@ -50,29 +50,18 @@ st.markdown("""
         padding-right: 0.5rem;
     }
     
+    /* サイドバー */
     section[data-testid="stSidebar"] {
         background-color: #262730;
         color: white;
     }
-    
     section[data-testid="stSidebar"] button {
         text-align: left;
         padding-left: 20px;
         width: 100%;
     }
 
-    div[data-testid="stHorizontalBlock"] {
-        display: grid !important;
-        grid-template-columns: 1fr auto !important;
-        gap: 10px !important;
-        align-items: center !important;
-    }
-    div[data-testid="column"]:nth-of-type(2) {
-        display: flex !important;
-        justify-content: flex-end !important;
-        width: auto !important;
-    }
-    
+    /* ヘッダーの更新ボタン */
     div[data-testid="stHorizontalBlock"] button {
         height: 2.5em !important;
         width: 3em !important;
@@ -83,6 +72,7 @@ st.markdown("""
         float: right !important;
     }
 
+    /* 通常ボタンの基本スタイル */
     div.stButton > button {
         height: 3em;
         font-size: 18px;
@@ -90,6 +80,8 @@ st.markdown("""
         border-radius: 10px;
         width: 100%;
     }
+    
+    /* Primaryボタン(赤) */
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B;
         color: white;
@@ -97,9 +89,33 @@ st.markdown("""
         font-size: 36px;
         width: 100%;
     }
+    /* サイドバー内のPrimaryは小さく */
     section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
         height: 3em; 
         font-size: 18px;
+    }
+
+    /* ▼▼▼ 追加: Undoボタン(3番目のボタン)をグレーにする ▼▼▼ */
+    /* 計測画面のメインエリアにあるボタンの順序: 1.記録(Red) 2.Relay(Outline) 3.Undo 4.Finish */
+    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(3) > button {
+        background-color: #4F4F4F; /* グレー */
+        color: white;
+        border: 1px solid #666;
+    }
+    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(3) > button:hover {
+        background-color: #666;
+        border-color: #888;
+        color: white;
+    }
+
+    /* ▼▼▼ 追加: 数値入力(st.number_input)を見やすく大きくする ▼▼▼ */
+    div[data-testid="stNumberInput"] input {
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        height: 3rem !important;
+    }
+    div[data-testid="stNumberInput"] button {
+        height: 3rem !important; /* +/-ボタンも大きく */
     }
 
     h3 {
@@ -471,7 +487,7 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # ▼▼▼ 修正: 区間(左) : 距離(右) = 2:3 の比率で配置 ▼▼▼
+                # ▼▼▼ 修正: 区間(左 2) : 距離(右 3) の比率で配置 ▼▼▼
                 c_section, c_km = st.columns([2, 3])
                 
                 with c_section:
@@ -494,7 +510,7 @@ if app_mode == "⏱️ 計測モード":
                     append_record(f"{current_section_num}区", "Relay")
                     st.success("リレーしました！")
                 
-                # ▼▼▼ 修正: Undoボタン (ラベル変更 & サイズ統一) ▼▼▼
+                # ▼▼▼ 修正: Undoボタン (ラベル変更 & サイズ統一 & CSSでグレー化) ▼▼▼
                 if st.button("↩️ 元に戻す", use_container_width=True):
                     try:
                         gc = get_gspread_client()
