@@ -61,18 +61,7 @@ st.markdown("""
         width: 100%;
     }
 
-    /* ヘッダーの更新ボタン */
-    div[data-testid="stHorizontalBlock"] button {
-        height: 2.5em !important;
-        width: 3em !important;
-        padding: 0px !important;
-        margin: 0px !important;
-        border-radius: 8px !important;
-        line-height: 1 !important;
-        float: right !important;
-    }
-
-    /* 通常ボタンの基本スタイル */
+    /* ヘッダーの更新ボタン削除に伴い、通常ボタンのスタイル調整 */
     div.stButton > button {
         height: 3em;
         font-size: 18px;
@@ -95,10 +84,9 @@ st.markdown("""
         font-size: 18px;
     }
 
-    /* ▼▼▼ 追加: Undoボタン(3番目のボタン)をグレーにする ▼▼▼ */
-    /* 計測画面のメインエリアにあるボタンの順序: 1.記録(Red) 2.Relay(Outline) 3.Undo 4.Finish */
+    /* Undoボタン(3番目のボタン)をグレーにする */
     div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(3) > button {
-        background-color: #4F4F4F; /* グレー */
+        background-color: #4F4F4F;
         color: white;
         border: 1px solid #666;
     }
@@ -108,14 +96,27 @@ st.markdown("""
         color: white;
     }
 
-    /* ▼▼▼ 追加: 数値入力(st.number_input)を見やすく大きくする ▼▼▼ */
+    /* 数値入力(st.number_input)を見やすく大きくする */
     div[data-testid="stNumberInput"] input {
         font-size: 1.2rem !important;
         font-weight: bold !important;
         height: 3rem !important;
     }
     div[data-testid="stNumberInput"] button {
-        height: 3rem !important; /* +/-ボタンも大きく */
+        height: 3rem !important;
+    }
+
+    /* ▼▼▼ 追加: スマホでもカラムを横並びに強制するCSS ▼▼▼ */
+    @media (max-width: 640px) {
+        div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+        }
+        div[data-testid="column"] {
+            width: auto !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+        }
     }
 
     h3 {
@@ -415,12 +416,10 @@ if app_mode == "⏱️ 計測モード":
                 first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
                 proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
-                # 現在の区間番号を取得
                 current_section_str = str(last_row['Section']) 
                 try: current_section_num = int(current_section_str.replace("区", ""))
                 except: current_section_num = 1
 
-                # 次の予測
                 if last_point == "Relay":
                     next_section_num = current_section_num + 1
                     next_km = 1
@@ -442,14 +441,9 @@ if app_mode == "⏱️ 計測モード":
                 
                 header_text = f"🏃‍♂️ {next_section_num}区 {current_dist_val} ~ {current_dist_val+1} km 走行中📣"
                 
-                c_title, c_btn = st.columns([1, 1])
-                with c_title:
-                    st.markdown(f"### {header_text}")
-                    st.caption(f"📁 Race: {proj_name}")
-                with c_btn:
-                    if st.button("🔄", help="即時更新"):
-                        st.cache_data.clear()
-                        st.rerun()
+                # ▼▼▼ 修正: 手動更新ボタン削除に伴いシンプル化 ▼▼▼
+                st.markdown(f"### {header_text}")
+                st.caption(f"📁 Race: {proj_name}")
 
                 now_calc = datetime.now(JST)
                 elapsed_km = (now_calc - last_time_obj).total_seconds()
@@ -458,7 +452,6 @@ if app_mode == "⏱️ 計測モード":
                 elapsed_split = (now_calc - first_time_obj).total_seconds()
                 show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
-                # ▼▼▼ 修正: 罫線を消して空白にする ▼▼▼
                 st.write("")
 
                 now_for_record = datetime.now(JST)
@@ -487,7 +480,7 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # ▼▼▼ 修正: 区間(左 2) : 距離(右 3) の比率で配置 ▼▼▼
+                # 区間(左 2) : 距離(右 3) の比率
                 c_section, c_km = st.columns([2, 3])
                 
                 with c_section:
@@ -498,19 +491,16 @@ if app_mode == "⏱️ 計測モード":
                     input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
                     target_point_str = f"{input_km}km"
 
-                # 計測ボタン
                 if st.button(f"⏱️ {target_point_str} を記録", type="primary", use_container_width=True):
                     append_record(target_sec_str, target_point_str)
                     st.toast(f"{target_point_str}を記録！")
 
                 st.write("") 
                 
-                # Relayボタン
                 if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
                     append_record(f"{current_section_num}区", "Relay")
                     st.success("リレーしました！")
                 
-                # ▼▼▼ 修正: Undoボタン (ラベル変更 & サイズ統一 & CSSでグレー化) ▼▼▼
                 if st.button("↩️ 元に戻す", use_container_width=True):
                     try:
                         gc = get_gspread_client()
