@@ -308,6 +308,7 @@ else:
             st.divider()
             
             # ▼▼▼ v1.4.0 変更: アーカイブ保存機能 ▼▼▼
+            # --- 1. アーカイブして次へ ---
             if st.button("📦 レース終了（ログ保存して次へ）", type="primary"):
                 try:
                     gc = get_gspread_client()
@@ -326,6 +327,9 @@ else:
                     # ※conn.updateで上書きされるので必須ではないが、念のため
                     new_ws.append_row(["Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Race"])
                     
+                    # 【v1.4.1 追加】新シートを一番左（0番目）に移動
+                    new_ws.update_index(0)
+
                     st.cache_data.clear()
                     st.toast(f"ログを「{archive_name}」として保存しました！")
                     st.rerun()
@@ -333,6 +337,25 @@ else:
                 except Exception as e:
                         # st.error(f"保存エラー: {e}")
                     st.error(f"保存エラー")
+            
+            # --- 2. 【v1.4.1 追加】保存せずにデータ破棄（デバッグ用） ---
+            if st.button("🗑️ [デバッグ] データ破棄"):
+                try:
+                    gc = get_gspread_client()
+                    sh = gc.open_by_url(SHEET_URL)
+                    
+                    # logシートの中身をクリアしてヘッダーのみ書き込む
+                    worksheet = sh.worksheet(WORKSHEET_NAME)
+                    worksheet.clear()
+                    worksheet.append_row(["Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Project"])
+                    
+                    # 【v1.4.1 追加】シートを一番左に移動（念のため）
+                    worksheet.update_index(0)
+
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"リセットエラー: {e}")
 
         if auto_reload_finish:
             st_autorefresh(interval=10000, key="refresh_finish")
