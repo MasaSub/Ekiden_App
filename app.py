@@ -302,10 +302,8 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.sidebar.title("メニュー")
 
-# session_stateから現在のモードを取得（デフォルトは計測）
 current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
 
-# ▼▼▼ 変更: 閲覧モードのアイコンを 📈 に変更 ▼▼▼
 type_measure = "primary" if current_mode == "⏱️ 計測モード" else "secondary"
 type_view    = "primary" if current_mode == "📈 閲覧モード" else "secondary"
 type_admin   = "primary" if current_mode == "⚙️ 管理者モード" else "secondary"
@@ -444,7 +442,8 @@ if app_mode == "⏱️ 計測モード":
                 elapsed_split = (now_calc - first_time_obj).total_seconds()
                 show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
-                st.divider()
+                # ▼▼▼ 修正: 罫線を消して空白にする ▼▼▼
+                st.write("")
 
                 now_for_record = datetime.now(JST)
 
@@ -472,16 +471,14 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # ▼▼▼ 修正: 左に区間、右に距離 & 両方number_input化 ▼▼▼
-                c_section, c_km = st.columns([1, 1])
+                # ▼▼▼ 修正: 区間(左) : 距離(右) = 2:3 の比率で配置 ▼▼▼
+                c_section, c_km = st.columns([2, 3])
                 
                 with c_section:
-                    # 区間選択 (数値入力)
                     input_section_num = st.number_input("区間", min_value=1, max_value=20, value=next_section_num, step=1)
                     target_sec_str = f"{input_section_num}区"
 
                 with c_km:
-                    # 距離選択 (数値入力)
                     input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
                     target_point_str = f"{input_km}km"
 
@@ -497,8 +494,8 @@ if app_mode == "⏱️ 計測モード":
                     append_record(f"{current_section_num}区", "Relay")
                     st.success("リレーしました！")
                 
-                # Undoボタン
-                if st.button("↩️ 元に戻す"):
+                # ▼▼▼ 修正: Undoボタン (ラベル変更 & サイズ統一) ▼▼▼
+                if st.button("↩️ 元に戻す", use_container_width=True):
                     try:
                         gc = get_gspread_client()
                         ws = gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME)
@@ -506,7 +503,7 @@ if app_mode == "⏱️ 計測モード":
                         if len(all_vals) > 1:
                             ws.delete_rows(len(all_vals))
                             st.cache_data.clear()
-                            st.toast("記録を削除しました")
+                            st.toast("直前の記録を削除しました")
                             st.rerun()
                         else:
                             st.warning("削除できるデータがありません")
@@ -527,7 +524,6 @@ if app_mode == "⏱️ 計測モード":
 # ==========================================
 # 2. 閲覧モード (過去ログ & グラフ)
 # ==========================================
-# ▼▼▼ 修正: アイコンを 📈 に変更 ▼▼▼
 elif app_mode == "📈 閲覧モード":
     st.header("📈 過去レース閲覧")
     
@@ -613,6 +609,3 @@ elif app_mode == "⚙️ 管理者モード":
                 
     elif pwd != "":
         st.error("パスワードが違います")
-
-
-# st.text_input("パスワードを入力してください", type="password")
