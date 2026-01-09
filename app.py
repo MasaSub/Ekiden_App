@@ -84,19 +84,6 @@ st.markdown("""
         font-size: 18px;
     }
 
-    /* ▼▼▼ Undoボタン(4番目のボタン)をグレーにする ▼▼▼ */
-    /* 順序: 1.記録(Red) 2.Relay 3.Finish 4.Undo */
-    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(4) > button {
-        background-color: #4F4F4F; /* 濃いグレー */
-        color: white;
-        border: 1px solid #666;
-    }
-    div[data-testid="stVerticalBlock"] div.stButton:nth-of-type(4) > button:hover {
-        background-color: #666;
-        border-color: #888;
-        color: white;
-    }
-
     /* 数値入力(st.number_input)を見やすく大きくする */
     div[data-testid="stNumberInput"] input {
         font-size: 1.2rem !important;
@@ -105,10 +92,8 @@ st.markdown("""
     }
     div[data-testid="stNumberInput"] button {
         height: 3rem !important;
-        width: 3rem !important; /* ボタン幅も確保 */
+        width: 3rem !important;
     }
-
-    /* ▼▼▼ 修正: スマホ用強制横並びCSSを削除し、自然な縦並び(レスポンシブ)に任せる ▼▼▼ */
 
     h3 {
         padding: 0px;
@@ -407,10 +392,12 @@ if app_mode == "⏱️ 計測モード":
                 first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
                 proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
 
+                # 現在の区間番号を取得
                 current_section_str = str(last_row['Section']) 
                 try: current_section_num = int(current_section_str.replace("区", ""))
                 except: current_section_num = 1
 
+                # 次の予測
                 if last_point == "Relay":
                     next_section_num = current_section_num + 1
                     next_km = 1
@@ -470,19 +457,13 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # ▼▼▼ 修正: 単純なst.columns(2)にして、スマホは自動で縦並びにする ▼▼▼
-                c_section, c_km = st.columns(2)
-                
-                with c_section:
-                    input_section_num = st.number_input("区間", min_value=1, max_value=20, value=next_section_num, step=1)
-                    target_sec_str = f"{input_section_num}区"
+                # ▼▼▼ 修正: 区間選択を削除し、距離入力のみを全幅表示 ▼▼▼
+                input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
+                target_point_str = f"{input_km}km"
 
-                with c_km:
-                    input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
-                    target_point_str = f"{input_km}km"
-
+                # 計測ボタン (区間は自動計算値を渡す)
                 if st.button(f"⏱️ {target_point_str} を記録", type="primary", use_container_width=True):
-                    append_record(target_sec_str, target_point_str)
+                    append_record(f"{next_section_num}区", target_point_str)
                     st.toast(f"{target_point_str}を記録！")
 
                 st.write("") 
@@ -491,7 +472,7 @@ if app_mode == "⏱️ 計測モード":
                     append_record(f"{current_section_num}区", "Relay")
                     st.success("リレーしました！")
                 
-                # ▼▼▼ 修正: 配置入れ替え (Finish -> Undo) ▼▼▼
+                # ▼▼▼ 修正: UndoボタンのCSSを削除し、標準スタイルに戻す ▼▼▼
                 if st.button("🏆 Finish", use_container_width=True):
                     append_record(f"{current_section_num}区", "Finish")
 
