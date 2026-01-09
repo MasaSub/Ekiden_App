@@ -505,8 +505,10 @@ elif app_mode == "📈 閲覧モード":
             
             if not view_df.empty:
                 st.write(f"### {selected_sheet} の記録")
+                st.dataframe(view_df, use_container_width=True)
                 
                 # ▼▼▼ v1.4.1 追加: グラフ可視化 ▼▼▼
+                st.divider()
                 st.subheader("📈 区間ペース推移")
                 
                 # グラフ用にデータを加工
@@ -523,10 +525,6 @@ elif app_mode == "📈 閲覧モード":
                     st.caption("※縦軸は区間ラップ(秒)")
                 else:
                     st.info("グラフ表示用のデータがありません")
-
-                st.divider()
-                st.dataframe(view_df, use_container_width=True)
-                
             else:
                 st.warning("データが空か、読み込めませんでした。")
                 
