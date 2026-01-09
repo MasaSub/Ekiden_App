@@ -1,5 +1,5 @@
 # ==========================================
-# version = 1.4.2 date = 2026/01/09
+# version = 1.4.3 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 1.4.2"
+VERSION = "ver 1.4.3"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_NAME = "latest-log"
@@ -533,13 +533,22 @@ elif app_mode == "📈 閲覧モード":
                     base_date = datetime(2000, 1, 1)
                     graph_df['TimeObj'] = graph_df['Seconds'].apply(lambda s: base_date + timedelta(seconds=s))
                     
+                    # ▼▼▼ v1.4.3 追加: 直近5区間にズームするためのドメイン計算 ▼▼▼
+                    max_seq = graph_df['Seq'].max()
+                    min_seq = max(1, max_seq - 5)
+                    
                     chart = alt.Chart(graph_df).mark_line(point=True, color='#4bd6ff').encode(
-                        x=alt.X('Seq', title='通過ポイント (順序)'),
+                        # ▼▼▼ v1.4.3 変更: X軸の初期表示範囲を設定 ▼▼▼
+                        x=alt.X('Seq', 
+                                title='通過ポイント (順序)', 
+                                scale=alt.Scale(domain=[min_seq, max_seq])
+                        ),
                         y=alt.Y('TimeObj', title='キロラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
                         tooltip=['Label', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
                     ).properties(
                         height=400
-                    ).interactive()
+                    # ▼▼▼ v1.4.3 変更: Y軸の操作を無効化（横スクロールのみ） ▼▼▼
+                    ).interactive(bind_y=False)
                     
                     st.altair_chart(chart, use_container_width=True)
                 else:
