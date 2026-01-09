@@ -39,9 +39,10 @@ st.markdown("""
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
-    /* サイドバーのスタイル調整 */
+    /* ▼▼▼ 修正: サイドバーをダークモード色に変更 ▼▼▼ */
     section[data-testid="stSidebar"] {
-        background-color: #f0f2f6;
+        background-color: #262730; /* 濃いグレー(ほぼ黒) */
+        color: white; /* 文字色を白に */
     }
     div[data-testid="stHorizontalBlock"] {
         display: grid !important;
@@ -519,7 +520,8 @@ elif app_mode == "📈 閲覧モード":
                 
                 if not graph_df.empty:
                     # 棒グラフでラップタイムを表示
-                    st.bar_chart(graph_df, x='Location', y='Seconds', color='#4bd6ff')
+                    # ▼▼▼ 修正: 折れ線グラフに変更 ▼▼▼
+                    st.line_chart(graph_df, x='Location', y='Seconds', color='#4bd6ff')
                     st.caption("※縦軸は区間ラップ(秒)")
                 else:
                     st.info("グラフ表示用のデータがありません")
