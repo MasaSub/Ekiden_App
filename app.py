@@ -547,7 +547,7 @@ elif app_mode == "📈 閲覧モード":
                 # グラフ用にデータを加工
                 graph_df = view_df.copy()
                 # 'SEC-Lap' を秒数に変換して 'Seconds' 列を作る
-                graph_df['Seconds'] = graph_df['KM-Lap'].apply(time_str_to_seconds)
+                graph_df['Seconds'] = graph_df['SEC-Lap'].apply(time_str_to_seconds)
                 
                 # 'Location' が 'Start' の行を除外
                 graph_df = graph_df[graph_df['Location'] != 'Start']
@@ -561,7 +561,7 @@ elif app_mode == "📈 閲覧モード":
                     chart = alt.Chart(graph_df).mark_line(point=True, color='#4bd6ff').encode(
                         x=alt.X('Location', sort=None, title='地点'),
                         # 2. 軸のフォーマットを '%M:%S' (分:秒) に指定
-                        y=alt.Y('TimeObj', title='キロラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
+                        y=alt.Y('TimeObj', title='区間ラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
                         # 3. ツールチップもフォーマット
                         tooltip=['Location', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
                     ).properties(
