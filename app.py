@@ -444,7 +444,7 @@ if app_mode == "⏱️ 計測モード":
                 elapsed_split = (now_calc - first_time_obj).total_seconds()
                 show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
-                st.divider()
+                st.write("")
 
                 now_for_record = datetime.now(JST)
 
