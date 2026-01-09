@@ -6,6 +6,7 @@ import streamlit as st
 import pandas as pd
 import math
 import gspread
+import altair as alt # ▼▼▼ v1.4.2 追加: 高度なグラフ描画用 ▼▼▼
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -44,6 +45,25 @@ st.markdown("""
         background-color: #262730; /* 濃いグレー(ほぼ黒) */
         color: white; /* 文字色を白に */
     }
+            
+    /* ▼▼▼ v1.4.1 追加: サイドバーのボタンをメニューっぽくする ▼▼▼ */
+    section[data-testid="stSidebar"] button {
+        background-color: transparent;
+        color: white;
+        border: 1px solid #555;
+        text-align: left;
+        padding-left: 20px;
+    }
+    section[data-testid="stSidebar"] button:hover {
+        border-color: #FF4B4B;
+        color: #FF4B4B;
+    }
+    section[data-testid="stSidebar"] button:focus {
+        background-color: #333;
+        border-color: #FF4B4B;
+        color: #FF4B4B;
+    }
+            
     div[data-testid="stHorizontalBlock"] {
         display: grid !important;
         grid-template-columns: 1fr auto !important;
@@ -273,9 +293,23 @@ def show_js_timer(km_sec, sec_sec, split_sec):
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# ▼▼▼ v1.4.1 追加: サイドバーでのモード切替 ▼▼▼
-st.sidebar.title("モード選択")
-app_mode = st.sidebar.radio("", ["⏱️ 計測モード", "📈 閲覧モード", "⚙️ 管理者モード"])
+# ▼▼▼ v1.4.1 変更: サイドバーをボタン切り替え & SessionState管理に変更 ▼▼▼
+if "app_mode" not in st.session_state:
+    st.session_state["app_mode"] = "⏱️ 計測モード"
+
+def set_mode(mode):
+    st.session_state["app_mode"] = mode
+
+st.sidebar.title("メニュー")
+st.sidebar.button("⏱️ 計測モード", on_click=set_mode, args=("⏱️ 計測モード",), use_container_width=True)
+st.sidebar.button("📈 閲覧モード", on_click=set_mode, args=("📈 閲覧モード",), use_container_width=True)
+st.sidebar.button("⚙️ 管理者モード", on_click=set_mode, args=("⚙️ 管理者モード",), use_container_width=True)
+
+app_mode = st.session_state["app_mode"]
+
+# 現在のモードをサイドバー下部に表示（確認用）
+st.sidebar.divider()
+st.sidebar.caption(f"現在のモード:\n**{app_mode}**")
 
 # ==========================================
 # 1. 計測モード (v1.4.0のロジックをここに集約)
