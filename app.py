@@ -455,12 +455,10 @@ if app_mode == "⏱️ 計測モード":
                     st.cache_data.clear()
                     st.rerun()
 
-                # ▼▼▼ v1.4.3: 区間選択なし、距離入力(number_input)のみ全幅表示 ▼▼▼
                 input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
                 target_point_str = f"{input_km}km"
 
                 if st.button(f"⏱️ {target_point_str} を記録", type="primary", use_container_width=True):
-                    # 区間は自動計算値を使用
                     append_record(f"{next_section_num}区", target_point_str)
                     st.toast(f"{target_point_str}を記録！")
 
@@ -473,7 +471,6 @@ if app_mode == "⏱️ 計測モード":
                 if st.button("🏆 Finish", use_container_width=True):
                     append_record(f"{current_section_num}区", "Finish")
 
-                # ▼▼▼ v1.4.3: Undoボタン (標準スタイル) ▼▼▼
                 if st.button("↩️ 元に戻す", use_container_width=True):
                     try:
                         gc = get_gspread_client()
@@ -531,7 +528,6 @@ elif app_mode == "📈 閲覧モード":
                     base_date = datetime(2000, 1, 1)
                     graph_df['TimeObj'] = graph_df['Seconds'].apply(lambda s: base_date + timedelta(seconds=s))
                     
-                    # ▼▼▼ v1.4.3: 直近15点ズーム & ジグザグ解消 & 横スクロール限定 ▼▼▼
                     labels = graph_df['Label'].tolist()
                     zoom_domain = labels[-15:] if len(labels) > 15 else labels
 
@@ -542,11 +538,11 @@ elif app_mode == "📈 閲覧モード":
                                 scale=alt.Scale(domain=zoom_domain)
                         ),
                         y=alt.Y('TimeObj', title='キロラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
-                        order='Seq', # 線を順番通りに結ぶ
+                        order='Seq', 
                         tooltip=['Label', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
                     ).properties(
                         height=400
-                    ).interactive(bind_y=False) # 縦スクロール無効化
+                    ).interactive(bind_y=False)
                     
                     st.altair_chart(chart, use_container_width=True)
                 else:
@@ -572,6 +568,54 @@ elif app_mode == "⚙️ 管理者モード":
     
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
+        st.divider()
+        
+        # ▼▼▼ v1.4.4 追加: データの直接編集・削除 ▼▼▼
+        st.write("### 📝 データ直接編集・行削除")
+        st.info("下の表でセルを書き換えたり、行を選択してDeleteキーで削除できます。編集後は必ず「保存」を押してください。")
+        
+        # 編集用データフレームの読み込み
+        edit_df = load_data(conn, WORKSHEET_NAME)
+        
+        if not edit_df.empty:
+            # データエディターの表示 (行の追加・削除・編集が可能)
+            edited_df = st.data_editor(edit_df, num_rows="dynamic", use_container_width=True)
+            
+            if st.button("💾 変更を保存", type="primary"):
+                try:
+                    conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=edited_df)
+                    st.cache_data.clear()
+                    st.toast("データを保存しました！")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"保存エラー: {e}")
+        else:
+            st.warning("データがありません")
+
+        st.divider()
+
+        # ▼▼▼ v1.4.4 追加: Finish状態の強制解除 ▼▼▼
+        # 最新のデータを確認し、Finish済みの場合のみ表示
+        if not edit_df.empty:
+            last_row_admin = edit_df.iloc[-1]
+            if str(last_row_admin.get('Location')) == "Finish":
+                st.write("### 🔓 Finish解除 (計測再開)")
+                st.warning("現在、レースは「Finish済み」になっています。もし誤操作だった場合、下のボタンでFinishを取り消して計測を再開できます。")
+                
+                if st.button("🚫 Finishステータスを取り消す (最終行を削除)"):
+                    try:
+                        gc = get_gspread_client()
+                        ws = gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME)
+                        all_vals = ws.get_all_values()
+                        if len(all_vals) > 1:
+                            ws.delete_rows(len(all_vals)) # 最終行を削除
+                            st.cache_data.clear()
+                            st.success("Finishを取り消しました！計測モードに戻ってください。")
+                        else:
+                            st.error("削除できるデータがありません")
+                    except Exception as e:
+                        st.error(f"解除エラー: {e}")
+        
         st.divider()
         st.write("### 🚨 デバッグ・緊急操作エリア")
         st.warning("※ここでの操作は取り消せません。慎重に行ってください。")
