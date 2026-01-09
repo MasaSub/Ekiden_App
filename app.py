@@ -479,7 +479,7 @@ if app_mode == "⏱️ 計測モード":
                     default_ix = point_options.index(target_label)
                 
                 selected_point = st.selectbox(
-                    "計測地点を選択 (自動補正可)", 
+                    "計測地点を選択", 
                     options=point_options, 
                     index=default_ix,
                     key=f"point_select_{len(current_df)}" # keyにデータ長を含めて更新毎にリセット
@@ -491,7 +491,6 @@ if app_mode == "⏱️ 計測モード":
                     st.toast(f"{selected_point}地点を記録！")
 
                 # ▼▼▼ v1.4.2 変更: Relay, Finishボタンの配置 ▼▼▼
-                st.write("") # スペース
                 if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
                     append_record("Relay")
                     st.success("リレーしました！")
@@ -601,3 +600,6 @@ elif app_mode == "⚙️ 管理者モード":
                 
     elif pwd != "":
         st.error("パスワードが違います")
+
+
+# st.text_input("パスワードを入力してください", type="password")
