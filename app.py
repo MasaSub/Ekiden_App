@@ -35,7 +35,7 @@ st.set_page_config(page_title="えきでんくん", page_icon="🎽", layout="wi
 st.markdown("""
     <style>
     .stApp { overflow-x: hidden; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; }
+    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
     
     /* サイドバー */
     section[data-testid="stSidebar"] { background-color: #262730; color: white; }
