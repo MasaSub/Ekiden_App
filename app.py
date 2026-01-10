@@ -20,22 +20,14 @@ import streamlit.components.v1 as components
 VERSION = "ver 2.0.0"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
-WORKSHEET_NAME = "latest-log"
+WORKSHEET_LOG = "latest-log"
+WORKSHEET_CONFIG = "config"
 JST = ZoneInfo("Asia/Tokyo")
-CACHE_TTL_SEC = 1.5
+CACHE_TTL_SEC = 2.0
 ADMIN_PASSWORD = "0000"
 
 # ページ設定
 st.set_page_config(page_title="えきでんくん", page_icon="🎽", layout="wide")
-
-# ==========================================
-# セッション状態の初期化
-# ==========================================
-if "app_mode" not in st.session_state:
-    st.session_state["app_mode"] = "⏱️ 計測モード"
-
-def set_mode(mode):
-    st.session_state["app_mode"] = mode
 
 # ==========================================
 # CSSデザイン定義
@@ -43,110 +35,45 @@ def set_mode(mode):
 st.markdown("""
     <style>
     .stApp { overflow-x: hidden; }
-    .block-container {
-        padding-top: 2.0rem;
-        padding-bottom: 5rem;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; }
     
     /* サイドバー */
-    section[data-testid="stSidebar"] {
-        background-color: #262730;
-        color: white;
-    }
-    section[data-testid="stSidebar"] button {
-        text-align: left;
-        padding-left: 20px;
-        width: 100%;
-    }
-
-    /* 通常ボタンの基本スタイル */
-    div.stButton > button {
-        height: 3em;
-        font-size: 18px;
-        font-weight: bold;
-        border-radius: 10px;
-        width: 100%;
-    }
+    section[data-testid="stSidebar"] { background-color: #262730; color: white; }
     
+    /* ボタン共通 */
+    div.stButton > button {
+        height: 3em; font-size: 16px; font-weight: bold; border-radius: 8px; width: 100%;
+    }
     /* Primaryボタン(赤) */
     div.stButton > button[kind="primary"] {
-        background-color: #FF4B4B;
-        color: white;
-        height: 4.0em;
-        font-size: 36px;
-        width: 100%;
+        background-color: #FF4B4B; color: white; height: 3.5em; font-size: 20px;
     }
-    /* サイドバー内のPrimaryは小さく */
-    section[data-testid="stSidebar"] div.stButton > button[kind="primary"] {
-        height: 3em; 
-        font-size: 18px;
+    /* メインチーム強調用 */
+    .main-team-box {
+        border: 2px solid #FF4B4B; padding: 10px; border-radius: 10px; background-color: #2b1e1e;
     }
+    
+    /* 数値入力 */
+    div[data-testid="stNumberInput"] input { font-size: 1.2rem; font-weight: bold; height: 3rem; }
+    div[data-testid="stNumberInput"] button { height: 3rem; width: 3rem; }
 
-    /* 数値入力(st.number_input)を見やすく大きくする */
-    div[data-testid="stNumberInput"] input {
-        font-size: 1.2rem !important;
-        font-weight: bold !important;
-        height: 3rem !important;
-    }
-    div[data-testid="stNumberInput"] button {
-        height: 3rem !important;
-        width: 3rem !important;
-    }
-
-    h3 {
-        padding: 0px;
-        margin: 0px;
-        font-size: 1.3rem !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    h3 { margin: 0; padding: 0; font-size: 1.2rem; }
     </style>
     """, unsafe_allow_html=True)
 
 # タイトル
 st.markdown(f"""
-    <h2 style='text-align: center; font-size: 24px; margin-bottom: 2px;'>
-        🎽 駅伝けいそくん
-    </h2>
-    <div style="text-align: center; font-size: 12px; color: #888; margin-bottom: 20px;">
-        {VERSION}
-    </div>
+    <h2 style='text-align: center; margin: 0;'>🎽 えきでんくん <span style='font-size: 0.6em; color: #888;'>{VERSION}</span></h2>
 """, unsafe_allow_html=True)
 
 # ==========================================
 # 関数定義
 # ==========================================
-def load_data(conn, sheet_name=WORKSHEET_NAME):
-    try:
-        ttl = CACHE_TTL_SEC
-        df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=ttl)
-        if not df.empty:
-            cols_to_str = ['Time', 'KM-Lap', 'SEC-Lap', 'Split', 'Race']
-            for col in cols_to_str:
-                if col in df.columns:
-                    df[col] = df[col].astype(str)
-        return df
-    except Exception as e:
-        return pd.DataFrame()
-    
-@st.cache_data(ttl=30)
-def get_sheet_names_cached():
-    try:
-        gc = get_gspread_client()
-        sh = gc.open_by_url(SHEET_URL)
-        return [ws.title for ws in sh.worksheets()]
-    except Exception as e:
-        return []
-
 def get_gspread_client():
     scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
     credentials = dict(st.secrets["connections"]["gsheets"])
     creds = Credentials.from_service_account_info(credentials, scopes=scope)
-    client = gspread.authorize(creds)
-    return client
+    return gspread.authorize(creds)
 
 def get_time_str(dt):
     return dt.strftime("%H:%M:%S.%f")[:10]
@@ -162,478 +89,475 @@ def parse_time_str(time_str):
     except:
         return now
 
-def time_str_to_seconds(time_str):
-    try:
-        if pd.isna(time_str) or time_str == "": return 0.0
-        if ":" in time_str:
-            parts = time_str.split(":")
-            if len(parts) == 2: # MM:SS.f
-                m = int(parts[0])
-                s = float(parts[1])
-                return m * 60 + s
-            elif len(parts) == 3: # HH:MM:SS
-                h = int(parts[0])
-                m = int(parts[1])
-                s = float(parts[2])
-                return h * 3600 + m * 60 + s
-        return 0.0
-    except:
-        return 0.0
-
-def style_decimal(time_str):
-    if "." in time_str:
-        main, dec = time_str.split(".")
-        return f'{main}<span style="font-size: 0.6em; opacity: 0.7;">.{dec}</span>'
-    return time_str    
-
 def fmt_time(sec):
     sec = math.ceil(sec)
     m, s = divmod(int(sec), 60)
     h, m = divmod(m, 60)
     return f"{h:01}:{m:02}:{s:02}"
 
-def fmt_time_lap(sec):
+def fmt_lap(sec):
     total_tenths = math.ceil(sec * 10)
     rem_tenths = total_tenths % 10
     total_sec = total_tenths // 10
     m, s = divmod(total_sec, 60)
     return f"{m:02}:{s:02}.{rem_tenths}"
 
-def get_section_start_time(df, section_num):
-    if section_num == 1:
-        row = df[df['Location'] == 'Start']
-    else:
-        prev_section = f"{section_num - 1}区"
-        row = df[(df['Section'] == prev_section) & (df['Location'] == 'Relay')]
-    
-    if not row.empty:
-        return parse_time_str(row.iloc[0]['Time'])
-    return None
+# --- データ読み込み ---
+def load_data(conn, sheet_name):
+    try:
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=CACHE_TTL_SEC)
+        if not df.empty:
+            # 数値型に変換すべきものを除く、文字列型への変換
+            for col in df.columns:
+                if col not in ['TeamID']: 
+                    df[col] = df[col].astype(str)
+        return df
+    except:
+        return pd.DataFrame()
 
-def show_js_timer(km_sec, sec_sec, split_sec):
-    km_ms = int(km_sec * 1000)
-    sec_ms = int(sec_sec * 1000)
-    split_ms = int(split_sec * 1000)
-    
-    html_code = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <style>
-        body {{ margin: 0; background-color: transparent; font-family: sans-serif; }}
-        .timer-container {{
-            display: flex; justify-content: space-between; align-items: center;
-            background-color: #262730; padding: 10px; border-radius: 10px;
-            border: 1px solid #444; color: white;
-            box-sizing: border-box; width: 100%;
-        }}
-        .timer-box {{ text-align: center; flex: 1; }}
-        .label {{ font-size: 11px; color: #aaa; margin-bottom: 2px; }}
-        .value {{ font-size: 24px; font-weight: bold; line-height: 1.1; }}
-        .value-split {{ font-size: 20px; font-weight: bold; color: #ffffff; line-height: 1.3; }}
-        .separator {{ width: 1px; height: 40px; background-color: #555; }}
-        .decimal {{ font-size: 0.6em; opacity: 0.7; }}
-    </style>
-    </head>
-    <body>
-    <div class="timer-container">
-        <div class="timer-box">
-            <div class="label">キロラップ</div>
-            <div id="km-val" class="value" style="color: #4bd6ff;">--:--.--</div>
-        </div>
-        <div class="separator"></div>
-        <div class="timer-box">
-            <div class="label">区間ラップ</div>
-            <div id="sec-val" class="value" style="color: #FF4B4B;">--:--.--</div>
-        </div>
-        <div class="separator"></div>
-        <div class="timer-box">
-            <div class="label">スタートから</div>
-            <div id="split-val" class="value-split">--:--:--</div>
-        </div>
-    </div>
-    <script>
-        const now = Date.now();
-        const startKm = now - {km_ms};
-        const startSec = now - {sec_ms};
-        const startSplit = now - {split_ms};
+# --- Config読み込み ---
+def load_config(conn):
+    try:
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=10) # 設定は少し長めにキャッシュ
+        if df.empty: return None
+        config = {}
+        for _, row in df.iterrows():
+            config[row['Key']] = row['Value']
+        return config
+    except:
+        return None
 
-        function fmtLap(ms) {{
-            const totalTenths = Math.ceil(ms / 100); 
-            const totalSec = Math.floor(totalTenths / 10);
-            const remTenths = totalTenths % 10;
-            const m = Math.floor(totalSec / 60);
-            const s = totalSec % 60;
-            return `${{String(m).padStart(2,'0')}}:${{String(s).padStart(2,'0')}}<span class="decimal">.${{remTenths}}</span>`;
-        }}
-        function fmtSplit(ms) {{
-            const totalSec = Math.ceil(ms / 1000);
-            const h = Math.floor(totalSec / 3600);
-            const rem = totalSec % 3600;
-            const m = Math.floor(rem / 60);
-            const s = rem % 60;
-            return `${{String(h).padStart(2,'0')}}:${{String(m).padStart(2,'0')}}:${{String(s).padStart(2,'0')}}`;
-        }}
-        function update() {{
-            const cur = Date.now();
-            document.getElementById("km-val").innerHTML = fmtLap(Math.max(0, cur - startKm));
-            document.getElementById("sec-val").innerHTML = fmtLap(Math.max(0, cur - startSec));
-            document.getElementById("split-val").innerText = fmtSplit(Math.max(0, cur - startSplit));
-        }}
-        setInterval(update, 50);
-        update(); 
-    </script>
-    </body>
-    </html>
-    """
-    components.html(html_code, height=70)
+# --- レース初期化・設定保存 ---
+def initialize_race(race_name, section_count, teams_dict, main_team_id):
+    gc = get_gspread_client()
+    sh = gc.open_by_url(SHEET_URL)
+    
+    # 1. logシート初期化
+    try: ws_log = sh.worksheet(WORKSHEET_LOG)
+    except: ws_log = sh.add_worksheet(WORKSHEET_LOG, 1000, 10)
+    ws_log.clear()
+    ws_log.append_row(["TeamID", "TeamName", "Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Rank", "Race"])
+    
+    # 2. configシート作成・保存
+    try: ws_conf = sh.worksheet(WORKSHEET_CONFIG)
+    except: ws_conf = sh.add_worksheet(WORKSHEET_CONFIG, 100, 2)
+    ws_conf.clear()
+    ws_conf.append_row(["Key", "Value"])
+    
+    config_data = [
+        ["RaceName", race_name],
+        ["SectionCount", str(section_count)],
+        ["MainTeamID", str(main_team_id)],
+        ["TeamCount", str(len(teams_dict))]
+    ]
+    for tid, tname in teams_dict.items():
+        config_data.append([f"TeamName_{tid}", tname])
+    
+    ws_conf.append_rows(config_data)
+    st.cache_data.clear()
 
 # ==========================================
-# メイン処理（モード分岐）
+# アプリのモード管理
 # ==========================================
+if "app_mode" not in st.session_state:
+    st.session_state["app_mode"] = "🏁 大会セットアップ" # デフォルト
+
 conn = st.connection("gsheets", type=GSheetsConnection)
+config = load_config(conn)
 
+# Configが読めない、またはデータがない場合はセットアップへ強制遷移
+if config is None or "RaceName" not in config:
+    st.session_state["app_mode"] = "🏁 大会セットアップ"
+
+# サイドバーメニュー
 st.sidebar.title("メニュー")
+menu_options = [
+    "🏁 大会セットアップ",
+    "⏱️ 計測(距離)",
+    "🎽 計測(中継)",
+    "📣 観戦モード",
+    "📊 分析モード",
+    "⚙️ 管理者モード"
+]
 
-current_mode = st.session_state.get("app_mode", "⏱️ 計測モード")
+# モード切替関数
+def change_mode(m):
+    st.session_state["app_mode"] = m
 
-type_measure = "primary" if current_mode == "⏱️ 計測モード" else "secondary"
-type_view    = "primary" if current_mode == "📈 閲覧モード" else "secondary"
-type_admin   = "primary" if current_mode == "⚙️ 管理者モード" else "secondary"
+# メニューボタン配置
+for m in menu_options:
+    disabled = False
+    if config is None and m != "🏁 大会セットアップ" and m != "⚙️ 管理者モード":
+        disabled = True # 設定未完了時は他モード無効
+    
+    k = "primary" if st.session_state["app_mode"] == m else "secondary"
+    st.sidebar.button(m, on_click=change_mode, args=(m,), type=k, disabled=disabled)
 
-st.sidebar.button("⏱️ 計測モード", on_click=set_mode, args=("⏱️ 計測モード",), type=type_measure, use_container_width=True)
-st.sidebar.button("📈 閲覧モード", on_click=set_mode, args=("📈 閲覧モード",), type=type_view, use_container_width=True)
-st.sidebar.button("⚙️ 管理者モード", on_click=set_mode, args=("⚙️ 管理者モード",), type=type_admin, use_container_width=True)
-
-app_mode = current_mode
+current_mode = st.session_state["app_mode"]
 
 # ==========================================
-# 1. 計測モード
+# 1. 🏁 大会セットアップ (プロジェクト作成)
 # ==========================================
-if app_mode == "⏱️ 計測モード":
-    df = load_data(conn, WORKSHEET_NAME)
+if current_mode == "🏁 大会セットアップ":
+    st.header("🏁 大会プロジェクト作成")
+    st.info("新しいレースの設定を行います。これまでのデータはアーカイブされずに消える場合があります（管理者モードでバックアップ推奨）。")
+    
+    with st.form("setup_form"):
+        race_name = st.text_input("レース名", value=f"Race_{datetime.now(JST).strftime('%Y%m%d')}")
+        section_count = st.number_input("全区間数", min_value=1, value=5)
+        team_count = st.number_input("参加チーム数", min_value=1, max_value=20, value=3)
+        
+        st.divider()
+        st.write("チーム設定 (ID: ゼッケン番号などを想定)")
+        
+        teams_input = {}
+        # チーム入力欄の動的生成
+        cols = st.columns(2)
+        main_team_options = []
+        
+        for i in range(1, team_count + 1):
+            with cols[(i-1)%2]:
+                tid = st.text_input(f"チーム{i} ID", value=str(i), key=f"tid_{i}")
+                tname = st.text_input(f"チーム{i} 名前", value=f"チーム{i}", key=f"tname_{i}")
+                teams_input[tid] = tname
+                main_team_options.append(tid)
 
-    # --- A. レース開始前 ---
-    if df.empty or len(df) == 0:
-        st.info("レース開始前")
+        st.divider()
+        main_team_sel = st.selectbox("★メインチーム (強調表示)", main_team_options)
         
-        default_proj_name = f"Race_{datetime.now(JST).strftime('%Y%m%d')}"
-        Race_name_input = st.text_input("📁 レース名", value=default_proj_name)
-        
-        if st.button("🔫 レーススタート (1区)", type="primary", use_container_width=True):
-            now = datetime.now(JST)
-            start_data = pd.DataFrame([{
-                "Section": "1区", 
-                "Location": "Start", 
-                "Time": get_time_str(now),
-                "KM-Lap": "00:00:00.0", 
-                "SEC-Lap": "00:00:00.0", 
-                "Split": "0:00:00",
-                "Race": Race_name_input
-            }])
-            conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=start_data)
-            st.cache_data.clear()
-            st.success("レーススタート！")
+        if st.form_submit_button("設定を保存してスタート", type="primary"):
+            initialize_race(race_name, section_count, teams_input, main_team_sel)
+            st.success("セットアップ完了！")
+            st.session_state["app_mode"] = "⏱️ 計測(距離)"
             st.rerun()
 
-        with st.expander("設定"):
-            auto_reload_start = st.toggle("🔄 自動更新", value=True, key="auto_reload_start")
-        if auto_reload_start:
-            st_autorefresh(interval=2000, key="refresh_start")
-
-    # --- B. レース進行中 or 終了後 ---
-    else:
-        last_row = df.iloc[-1]
-        last_point = str(last_row['Location'])
-        current_Race_name = df.iloc[0]['Race'] if 'Race' in df.columns else "Unknown"
-        
-        if last_point == "Finish":
-            st.success("🏆 競技終了！お疲れ様でした！")
-            st.metric("🏁 フィニッシュ時刻", last_row['Time'])
-            st.metric("⏱️ 最終タイム", last_row['Split'])
-            st.caption(f"📁 レース: {current_Race_name}")
-            st.divider()
-            st.markdown("### 📊 最終リザルト")
-            st.dataframe(df, use_container_width=True)
-            
-            with st.expander("次のレースへ進む"):
-                if st.button("📦 レース終了（ログ保存して次へ）", type="primary"):
-                    try:
-                        gc = get_gspread_client()
-                        sh = gc.open_by_url(SHEET_URL)
-                        
-                        archive_name = f"{current_Race_name}_{datetime.now(JST).strftime('%Y%m%d_%H%M')}"
-                        worksheet = sh.worksheet(WORKSHEET_NAME)
-                        worksheet.update_title(archive_name)
-                        
-                        new_ws = sh.add_worksheet(title=WORKSHEET_NAME, rows=1000, cols=10)
-                        new_ws.append_row(["Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Race"])
-                        new_ws.update_index(0)
-
-                        st.cache_data.clear()
-                        st.toast(f"ログを「{archive_name}」として保存しました！")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"保存エラー: {e}")
-
-            if st.toggle("🔄 自動更新", value=True, key="auto_reload_finish"):
-                st_autorefresh(interval=10000, key="refresh_finish")
-        
-        else:
-            @st.fragment(run_every=4)
-            def show_race_dashboard():
-                conn_frag = st.connection("gsheets", type=GSheetsConnection)
-                current_df = load_data(conn_frag, WORKSHEET_NAME)
-                if current_df.empty: return
-
-                last_row = current_df.iloc[-1]
-                last_point = str(last_row['Location'])
-                last_time_obj = parse_time_str(last_row['Time'])
-                first_time_obj = parse_time_str(current_df.iloc[0]['Time'])
-                proj_name = current_df.iloc[0]['Race'] if 'Race' in current_df.columns else "Unknown"
-
-                current_section_str = str(last_row['Section']) 
-                try: current_section_num = int(current_section_str.replace("区", ""))
-                except: current_section_num = 1
-
-                if last_point == "Relay":
-                    next_section_num = current_section_num + 1
-                    next_km = 1
-                else:
-                    next_section_num = current_section_num
-                    if "km" in last_point:
-                        try: last_km = int(last_point.replace("km", ""))
-                        except: last_km = 0
-                    else: last_km = 0
-                    next_km = last_km + 1
-
-                if last_point in ["Start", "Relay"]:
-                    current_dist_val = 0
-                elif "km" in last_point:
-                    try: current_dist_val = int(last_point.replace("km", ""))
-                    except: current_dist_val = 0
-                else:
-                    current_dist_val = 0
-                
-                header_text = f"🏃‍♂️ {next_section_num}区 {current_dist_val} ~ {current_dist_val+1} km 走行中📣"
-                
-                st.markdown(f"### {header_text}")
-                st.caption(f"📁 Race: {proj_name}")
-
-                now_calc = datetime.now(JST)
-                elapsed_km = (now_calc - last_time_obj).total_seconds()
-                sec_start = get_section_start_time(current_df, next_section_num)
-                elapsed_sec = (now_calc - sec_start).total_seconds() if sec_start else 0
-                elapsed_split = (now_calc - first_time_obj).total_seconds()
-                show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
-
-                st.write("")
-
-                now_for_record = datetime.now(JST)
-
-                def append_record(section_val, loc_text):
-                    lap_sec = (now_for_record - last_time_obj).total_seconds()
-                    total_sec = (now_for_record - first_time_obj).total_seconds()
-                    
-                    try: sec_num_int = int(section_val.replace("区", ""))
-                    except: sec_num_int = current_section_num
-                    
-                    section_start_obj = get_section_start_time(current_df, sec_num_int)
-                    section_lap_sec = (now_for_record - section_start_obj).total_seconds() if section_start_obj else 0
-                    
-                    values = [
-                        section_val,
-                        loc_text,
-                        get_time_str(now_for_record),
-                        fmt_time_lap(lap_sec),
-                        fmt_time_lap(section_lap_sec),
-                        fmt_time(total_sec),
-                        proj_name
-                    ]
-                    gc = get_gspread_client()
-                    gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME).append_row(values, value_input_option='USER_ENTERED')
-                    st.cache_data.clear()
-                    st.rerun()
-
-                input_km = st.number_input("距離 (km)", min_value=1, max_value=25, value=next_km, step=1)
-                target_point_str = f"{input_km}km"
-
-                if st.button(f"⏱️ {target_point_str} を記録", type="primary", use_container_width=True):
-                    append_record(f"{next_section_num}区", target_point_str)
-                    st.toast(f"{target_point_str}を記録！")
-
-                st.write("") 
-                
-                if st.button(f"🎽 次へ ({next_section_num+1}区へ)", use_container_width=True):
-                    append_record(f"{current_section_num}区", "Relay")
-                    st.success("リレーしました！")
-                
-                if st.button("🏆 Finish", use_container_width=True):
-                    append_record(f"{current_section_num}区", "Finish")
-
-                if st.button("↩️ 元に戻す", use_container_width=True):
-                    try:
-                        gc = get_gspread_client()
-                        ws = gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME)
-                        all_vals = ws.get_all_values()
-                        if len(all_vals) > 1:
-                            ws.delete_rows(len(all_vals))
-                            st.cache_data.clear()
-                            st.toast("直前の記録を削除しました")
-                            st.rerun()
-                        else:
-                            st.warning("削除できるデータがありません")
-                    except Exception as e:
-                        st.error(f"Undoエラー: {e}")
-
-            show_race_dashboard()
-            
-            st.divider()
-            with st.expander("📊 計測ログを表示"):
-                st.dataframe(df.iloc[::-1], use_container_width=True)
-
-
 # ==========================================
-# 2. 閲覧モード (過去ログ & グラフ)
+# 共通ロジック: データの取得と整理
 # ==========================================
-elif app_mode == "📈 閲覧モード":
-    st.header("📈 過去レース閲覧")
+elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観戦モード", "📊 分析モード"]:
+    if not config:
+        st.error("設定が読み込めません。セットアップを行ってください。")
+        st.stop()
+
+    df = load_data(conn, WORKSHEET_LOG)
     
-    sheet_names = get_sheet_names_cached()
+    # チーム情報の復元
+    teams_info = {} # {id: name}
+    team_ids_ordered = []
+    main_team_id = config.get("MainTeamID", "1")
+    total_sections = int(config.get("SectionCount", 5))
     
-    if sheet_names:
-        default_index = 0
-        if WORKSHEET_NAME in sheet_names:
-            default_index = sheet_names.index(WORKSHEET_NAME)
-        
-        selected_sheet = st.selectbox("閲覧するシートを選択", sheet_names, index=0)
-        
-        if st.button("データを読み込む"):
-            view_df = load_data(conn, selected_sheet)
-            
-            if not view_df.empty:
-                st.write(f"### {selected_sheet} の記録")
-                
-                st.subheader("📈 ペース推移")
-                
-                graph_df = view_df.copy()
-                graph_df['Seconds'] = graph_df['KM-Lap'].apply(time_str_to_seconds)
-                graph_df = graph_df[graph_df['Location'] != 'Start']
-                
-                graph_df = graph_df.reset_index(drop=True)
-                graph_df['Seq'] = graph_df.index + 1
-                graph_df['Label'] = graph_df['Section'] + " - " + graph_df['Location']
+    # Configからチーム名を復元
+    for k, v in config.items():
+        if k.startswith("TeamName_"):
+            tid = k.replace("TeamName_", "")
+            teams_info[tid] = v
+            team_ids_ordered.append(tid)
+    
+    # メインチームを先頭に
+    if main_team_id in team_ids_ordered:
+        team_ids_ordered.remove(main_team_id)
+        team_ids_ordered.insert(0, main_team_id)
 
-                if not graph_df.empty:
-                    base_date = datetime(2000, 1, 1)
-                    graph_df['TimeObj'] = graph_df['Seconds'].apply(lambda s: base_date + timedelta(seconds=s))
-                    
-                    labels = graph_df['Label'].tolist()
-                    zoom_domain = labels[-15:] if len(labels) > 15 else labels
-
-                    chart = alt.Chart(graph_df).mark_line(point=True, color='#4bd6ff').encode(
-                        x=alt.X('Label', 
-                                title='地点', 
-                                sort=alt.EncodingSortField(field="Seq", order="ascending"),
-                                scale=alt.Scale(domain=zoom_domain)
-                        ),
-                        y=alt.Y('TimeObj', title='キロラップ (分:秒)', axis=alt.Axis(format='%M:%S')),
-                        order='Seq', 
-                        tooltip=['Label', alt.Tooltip('TimeObj', format='%M:%S', title='タイム')]
-                    ).properties(
-                        height=400
-                    ).interactive(bind_y=False)
-                    
-                    st.altair_chart(chart, use_container_width=True)
-                else:
-                    st.info("グラフ表示用のデータがありません")
-
-                st.divider()
-                st.dataframe(view_df, use_container_width=True)
-
+    # チームごとの最新状態を取得
+    team_status = {} # {tid: last_row_series}
+    if not df.empty:
+        for tid in team_ids_ordered:
+            t_df = df[df['TeamID'] == tid]
+            if not t_df.empty:
+                team_status[tid] = t_df.iloc[-1]
             else:
-                st.warning("データが空か、読み込めませんでした。")
-                        
+                team_status[tid] = None
     else:
-        st.error("シート一覧を取得できませんでした (API制限の可能性があります。しばらく待って再読み込みしてください)")
+        # レース開始前
+        pass
 
+    # ==========================================
+    # ⏱️ 計測(距離) & 🎽 計測(中継)
+    # ==========================================
+    if current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)"]:
+        st.write(f"### {current_mode}")
+        
+        # --- 自動更新 ---
+        auto_reload = st.sidebar.toggle("🔄 自動更新", value=True)
+        if auto_reload:
+            st_autorefresh(interval=2000, key="measure_refresh")
+
+        # --- 一斉スタート (データ空の場合) ---
+        if df.empty:
+            st.info("レースはまだ始まっていません。")
+            if st.button("🔫 全チーム一斉スタート", type="primary"):
+                now = datetime.now(JST)
+                start_rows = []
+                for tid in team_ids_ordered:
+                    start_rows.append([
+                        tid, teams_info[tid], "1区", "Start", get_time_str(now),
+                        "00:00:00.0", "00:00:00.0", "0:00:00", "1", config["RaceName"]
+                    ])
+                gc = get_gspread_client()
+                gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_LOG).append_rows(start_rows)
+                st.cache_data.clear()
+                st.rerun()
+            st.stop() # スタート前はここで止める
+
+        # --- 各チームのパネル表示 (A案: 縦並び) ---
+        
+        # 共通記録関数
+        def record_point(tid, section, location, is_finish=False):
+            now = datetime.now(JST)
+            # 直前のログを取得してラップ計算
+            t_df = df[df['TeamID'] == tid]
+            if t_df.empty: return # エラー回避
+            last = t_df.iloc[-1]
+            last_time = parse_time_str(last['Time'])
+            
+            # スタートタイム(1区Start)を取得
+            start_row = t_df[t_df['Location'] == 'Start'].iloc[0]
+            start_time = parse_time_str(start_row['Time'])
+            
+            # 区間スタートタイム
+            sec_start_time = start_time
+            if section != "1区":
+                prev_sec_end = t_df[(t_df['Section'] == f"{int(section.replace('区',''))-1}区") & (t_df['Location'] == 'Relay')]
+                if not prev_sec_end.empty:
+                    sec_start_time = parse_time_str(prev_sec_end.iloc[0]['Time'])
+
+            km_lap = (now - last_time).total_seconds()
+            sec_lap = (now - sec_start_time).total_seconds()
+            split = (now - start_time).total_seconds()
+            
+            # 暫定順位計算 (今の瞬間にこの地点を通過したチーム数 + 1)
+            # 正確には「同時刻以前に同じ地点を通過した数」だが、簡易的に「既存ログ数+1」とする
+            rank = len(df[(df['Section'] == section) & (df['Location'] == location)]) + 1
+
+            new_row = [
+                tid, teams_info[tid], section, location, get_time_str(now),
+                fmt_lap(km_lap), fmt_lap(sec_lap), fmt_time(split), str(rank), config["RaceName"]
+            ]
+            
+            gc = get_gspread_client()
+            gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_LOG).append_row(new_row)
+            st.cache_data.clear()
+            st.toast(f"{teams_info[tid]}: {location} 記録完了")
+
+        # 距離入力 (計測モードのみ)
+        target_km = 1
+        if current_mode == "⏱️ 計測(距離)":
+            c_input, _ = st.columns([2, 1])
+            with c_input:
+                target_km = st.number_input("記録する距離 (km)", min_value=1, max_value=50, value=1)
+
+        # チームループ
+        for tid in team_ids_ordered:
+            status = team_status.get(tid)
+            if status is None: continue # データ不整合
+
+            t_name = teams_info.get(tid, tid)
+            is_main = (tid == main_team_id)
+            
+            # 現在の状態
+            last_loc = str(status['Location'])
+            curr_sec_str = str(status['Section'])
+            try: curr_sec_num = int(curr_sec_str.replace("区", ""))
+            except: curr_sec_num = 1
+            
+            # Finish済み判定
+            if last_loc == "Finish":
+                with st.container(border=True):
+                    st.markdown(f"### 🏁 {t_name} <small>(Finish)</small>", unsafe_allow_html=True)
+                    st.write(f"Time: {status['Split']}")
+                continue
+
+            # 表示枠 (メインチームは強調)
+            box_style = "border: 2px solid #FF4B4B;" if is_main else ""
+            with st.container(border=True):
+                # ヘッダー情報
+                col_head, col_info = st.columns([1, 2])
+                with col_head:
+                    prefix = "★" if is_main else ""
+                    st.markdown(f"#### {prefix}{t_name}")
+                    st.caption(f"{curr_sec_str} | {last_loc} 通過")
+                with col_info:
+                     # 最新ラップ表示
+                     st.markdown(f"**Split:** `{status['Split']}` / **Lap:** `{status['KM-Lap']}`")
+
+                # アクションボタン
+                if current_mode == "⏱️ 計測(距離)":
+                    # 距離記録ボタン
+                    btn_label = f"⏱️ {target_km}km を記録"
+                    if st.button(btn_label, key=f"btn_dist_{tid}", type="primary" if is_main else "secondary"):
+                        record_point(tid, curr_sec_str, f"{target_km}km")
+                        st.rerun()
+
+                elif current_mode == "🎽 計測(中継)":
+                    # 中継 or Finish ボタン
+                    is_anchor = (curr_sec_num >= total_sections)
+                    
+                    if is_anchor:
+                        if st.button("🏆 Finish (ゴール)", key=f"btn_fin_{tid}", type="primary"):
+                             record_point(tid, curr_sec_str, "Finish", is_finish=True)
+                             st.rerun()
+                    else:
+                         next_sec = f"{curr_sec_num + 1}区"
+                         if st.button(f"🎽 Relay ({next_sec}へ)", key=f"btn_rel_{tid}", type="primary" if is_main else "secondary"):
+                             record_point(tid, curr_sec_str, "Relay") # 現在の区間のRelayとして記録
+                             # 次の区間のStartは自動記録せず、Relay通過＝次区間開始とみなすロジック
+                             # (必要ならここで次区間Startも書くが、今回はRelay時刻＝次区間Startとする)
+                             st.rerun()
+
+    # ==========================================
+    # 📣 観戦モード (リアルタイム詳細)
+    # ==========================================
+    elif current_mode == "📣 観戦モード":
+        st.sidebar.markdown("---")
+        watch_tid = st.sidebar.selectbox("表示チームを選択", team_ids_ordered, format_func=lambda x: teams_info.get(x, x))
+        
+        st_autorefresh(interval=5000, key="watch_refresh") # 5秒更新
+        
+        # データ抽出
+        t_df = df[df['TeamID'] == watch_tid]
+        if t_df.empty:
+            st.warning("データがありません")
+        else:
+            last = t_df.iloc[-1]
+            last_time = parse_time_str(last['Time'])
+            now = datetime.now(JST)
+            
+            # --- 情報パネル ---
+            t_name = teams_info.get(watch_tid, watch_tid)
+            st.markdown(f"# 📣 {t_name} 応援中")
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("現在地", f"{last['Section']} - {last['Location']}")
+            c1.caption(f"通過時刻: {last['Time']}")
+            
+            # 経過時間（リアルタイム風）
+            elapsed = (now - last_time).total_seconds()
+            if last['Location'] == 'Finish':
+                c2.metric("Total Time", last['Split'])
+            else:
+                # 簡易タイマー表示（JSではなくPython計算値で静的表示）
+                c2.metric("通過から", fmt_time(elapsed))
+            
+            c3.metric("区間順位", f"{last['Rank']}位") # 簡易ランク
+
+            st.divider()
+            
+            # --- 差の表示 (簡易版) ---
+            # 同じ地点(Section, Location)を通過した他チームを探す
+            loc_df = df[(df['Section'] == last['Section']) & (df['Location'] == last['Location'])].sort_values("Time")
+            # 自分のインデックス
+            my_idx = -1
+            for i in range(len(loc_df)):
+                if loc_df.iloc[i]['TeamID'] == watch_tid:
+                    my_idx = i
+                    break
+            
+            if my_idx > 0:
+                prev_row = loc_df.iloc[my_idx - 1]
+                prev_tname = teams_info.get(prev_row['TeamID'])
+                prev_time = parse_time_str(prev_row['Time'])
+                diff = (last_time - prev_time).total_seconds()
+                st.info(f"⬆️ 前のチーム: **{prev_tname}** (差: {fmt_time(diff)})")
+            elif my_idx == 0:
+                st.success("👑 現在 **トップ** 通過です！")
+                
+            if my_idx >= 0 and my_idx < len(loc_df) - 1:
+                next_row = loc_df.iloc[my_idx + 1]
+                next_tname = teams_info.get(next_row['TeamID'])
+                next_time = parse_time_str(next_row['Time'])
+                diff = (next_time - last_time).total_seconds()
+                st.write(f"⬇️ 後ろのチーム: **{next_tname}** (差: {fmt_time(diff)})")
+
+            st.divider()
+            st.write("履歴")
+            st.dataframe(t_df.iloc[::-1][['Section','Location','Time','KM-Lap','Rank']], use_container_width=True)
+
+    # ==========================================
+    # 📊 分析モード (グラフ)
+    # ==========================================
+    elif current_mode == "📊 分析モード":
+        st.title("📊 レース分析")
+        
+        if st.button("データ更新"):
+            st.cache_data.clear()
+            st.rerun()
+
+        # 順位変動グラフ用データ作成
+        # Locationごとの順位を再計算してプロット
+        # X軸: Section-Location (ユニークな経過地点), Y軸: Rank, Color: Team
+        
+        # 全地点リスト作成
+        points = df[['Section', 'Location']].drop_duplicates()
+        # ソート順序が必要だが、簡易的に出現順とする（本当はマスタ順が良い）
+        
+        graph_data = []
+        
+        for _, pt in points.iterrows():
+            sec, loc = pt['Section'], pt['Location']
+            if loc == 'Start': continue
+            
+            # その地点の通過ログ
+            p_df = df[(df['Section'] == sec) & (df['Location'] == loc)]
+            # タイム順にソートして順位づけ
+            if not p_df.empty:
+                # 文字列タイムだとソートが怪しいので秒換算推奨だが、HH:MM:SSなら文字比較でも概ねOK
+                p_df = p_df.sort_values("Time")
+                rank = 1
+                for _, row in p_df.iterrows():
+                    graph_data.append({
+                        "Team": teams_info.get(row['TeamID'], row['TeamID']),
+                        "Point": f"{sec}-{loc}",
+                        "Rank": rank,
+                        "Time": row['Time']
+                    })
+                    rank += 1
+        
+        if graph_data:
+            g_df = pd.DataFrame(graph_data)
+            
+            chart = alt.Chart(g_df).mark_line(point=True).encode(
+                x=alt.X('Point', sort=None, title='通過地点'),
+                y=alt.Y('Rank', scale=alt.Scale(reverse=True), title='順位'), # 1位を上に
+                color='Team',
+                tooltip=['Team', 'Point', 'Rank', 'Time']
+            ).properties(height=500).interactive()
+            
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info("グラフデータがまだありません")
 
 # ==========================================
-# 3. 管理者モード (デバッグ・メンテナンス)
+# ⚙️ 管理者モード (v1.4.4継承 + Config編集)
 # ==========================================
-elif app_mode == "⚙️ 管理者モード":
+elif current_mode == "⚙️ 管理者モード":
     st.header("⚙️ 管理者メニュー")
-    
-    pwd = st.text_input("パスワードを入力してください", type="password")
+    pwd = st.text_input("パスワード", type="password")
     
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
-        st.divider()
         
-        # ▼▼▼ v1.4.4 追加: データの直接編集・削除 ▼▼▼
-        st.write("### 📝 データ直接編集・行削除")
-        st.info("下の表でセルを書き換えたり、行を選択してDeleteキーで削除できます。編集後は必ず「保存」を押してください。")
-        
-        # 編集用データフレームの読み込み
-        edit_df = load_data(conn, WORKSHEET_NAME)
-        
-        if not edit_df.empty:
-            # データエディターの表示 (行の追加・削除・編集が可能)
-            edited_df = st.data_editor(edit_df, num_rows="dynamic", use_container_width=True)
+        st.write("### 🚨 プロジェクトリセット")
+        if st.button("🗑️ 現在のレースデータを全消去 (セットアップに戻る)"):
+            gc = get_gspread_client()
+            sh = gc.open_by_url(SHEET_URL)
+            # logクリア
+            try: sh.worksheet(WORKSHEET_LOG).clear()
+            except: pass
+            # configクリア
+            try: sh.worksheet(WORKSHEET_CONFIG).clear()
+            except: pass
             
-            if st.button("💾 変更を保存", type="primary"):
-                try:
-                    conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_NAME, data=edited_df)
-                    st.cache_data.clear()
-                    st.toast("データを保存しました！")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"保存エラー: {e}")
-        else:
-            st.warning("データがありません")
-
+            st.cache_data.clear()
+            st.session_state["app_mode"] = "🏁 大会セットアップ"
+            st.rerun()
+            
         st.divider()
-
-        # ▼▼▼ v1.4.4 追加: Finish状態の強制解除 ▼▼▼
-        # 最新のデータを確認し、Finish済みの場合のみ表示
+        st.write("### 📝 データ直接編集")
+        edit_df = load_data(conn, WORKSHEET_LOG)
         if not edit_df.empty:
-            last_row_admin = edit_df.iloc[-1]
-            if str(last_row_admin.get('Location')) == "Finish":
-                st.write("### 🔓 Finish解除 (計測再開)")
-                st.warning("現在、レースは「Finish済み」になっています。もし誤操作だった場合、下のボタンでFinishを取り消して計測を再開できます。")
-                
-                if st.button("🚫 Finishステータスを取り消す (最終行を削除)"):
-                    try:
-                        gc = get_gspread_client()
-                        ws = gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_NAME)
-                        all_vals = ws.get_all_values()
-                        if len(all_vals) > 1:
-                            ws.delete_rows(len(all_vals)) # 最終行を削除
-                            st.cache_data.clear()
-                            st.success("Finishを取り消しました！計測モードに戻ってください。")
-                        else:
-                            st.error("削除できるデータがありません")
-                    except Exception as e:
-                        st.error(f"解除エラー: {e}")
-        
-        st.divider()
-        st.write("### 🚨 デバッグ・緊急操作エリア")
-        st.warning("※ここでの操作は取り消せません。慎重に行ってください。")
-        
-        if st.button("🗑️ [デバッグ] logデータを強制破棄 (アーカイブなし)"):
-            try:
-                gc = get_gspread_client()
-                sh = gc.open_by_url(SHEET_URL)
-                
-                worksheet = sh.worksheet(WORKSHEET_NAME)
-                worksheet.clear()
-                worksheet.append_row(["Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Race"])
-                worksheet.update_index(0)
-
+            edited = st.data_editor(edit_df, num_rows="dynamic")
+            if st.button("保存"):
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_LOG, data=edited)
                 st.cache_data.clear()
-                st.success("logシートを初期化しました。")
-            except Exception as e:
-                st.error(f"リセットエラー: {e}")
-                
-    elif pwd != "":
-        st.error("パスワードが違います")
+                st.toast("保存しました")
