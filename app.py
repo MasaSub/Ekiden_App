@@ -26,7 +26,7 @@ CACHE_TTL_SEC = 1.5
 ADMIN_PASSWORD = "0000"
 
 # ページ設定
-st.set_page_config(page_title="駅伝けいそくん", page_icon="🎽", layout="wide")
+st.set_page_config(page_title="えきでんくん", page_icon="🎽", layout="wide")
 
 # ==========================================
 # セッション状態の初期化
