@@ -891,7 +891,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                                     f"{team_a_name} 順位": f"{row_a['Rank']}位",
                                     f"{team_b_name} 順位": f"{row_b['Rank']}位",
                                     "タイム差": fmt_time(abs(diff_split)),
-                                    "先行": split_leader,
                                     f"{team_a_name} 1km": row_a['KMLapStr'],
                                     f"{team_b_name} 1km": row_b['KMLapStr'],
                                 })
