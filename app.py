@@ -30,14 +30,14 @@ ADMIN_PASSWORD = "0000"
 st.set_page_config(page_title="えきでんくん", page_icon="🎽", layout="wide")
 
 # ==========================================
-# CSSデザイン定義
+# CSSデザイン定義 (v2.0.0そのまま)
 # ==========================================
 st.markdown("""
     <style>
     .stApp { overflow-x: hidden; }
     
     /* 全体の余白を詰める */
-    .block-container { padding-top: 1rem; padding-bottom: 3rem; padding-left: 0.5rem; padding-right: 0.5rem; }
+    .block-container { padding-top: 3rem; padding-bottom: 3rem; padding-left: 0.5rem; padding-right: 0.5rem; }
     
     section[data-testid="stSidebar"] { background-color: #262730; color: white; }
     
@@ -58,7 +58,7 @@ st.markdown("""
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B; 
         color: white; 
-        border: 2px solid #ff9999;
+        border: 1px solid #555; 
     }
     
     /* Secondaryボタン(ダーク) */
@@ -73,9 +73,9 @@ st.markdown("""
         color: white;
     }
     
-    /* 最後のボタン(Undo)を薄めグレーにする (Secondaryの場合のみ適用) */
+    /* ▼▼▼ 修正: Secondaryボタンの場合のみ、最後のボタン(Undo)を薄めグレーにする ▼▼▼ */
     div.block-container > div[data-testid="stVerticalBlock"] > div:last-child button[kind="secondary"] {
-        background-color: #555555 !important;
+        background-color: #555555 !important; /* 薄めグレー */
         color: #eeeeee !important;
         border: 1px solid #777 !important;
     }
@@ -133,8 +133,10 @@ def load_data(conn, sheet_name):
                 df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except Exception:
+        # 読み込み失敗時は空のDataFrameを返す（画面真っ白回避）
         return pd.DataFrame()
 
+# Config読み込み
 def fetch_config_from_sheet(conn):
     try:
         df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=0)
@@ -146,6 +148,7 @@ def fetch_config_from_sheet(conn):
     except:
         return None
 
+# レース初期化
 def initialize_race(race_name, section_count, teams_dict, main_team_id):
     gc = get_gspread_client()
     sh = gc.open_by_url(SHEET_URL)
@@ -177,7 +180,7 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
         new_config[item[0]] = item[1]
     st.session_state["race_config"] = new_config
 
-# ▼▼▼ JavaScriptタイマー表示関数 ▼▼▼
+# ▼▼▼ 追加: JSタイマー表示関数 (v2.0.1) ▼▼▼
 def show_js_timer(km_sec, sec_sec, split_sec):
     km_ms = int(km_sec * 1000)
     sec_ms = int(sec_sec * 1000)
@@ -273,13 +276,15 @@ config = st.session_state["race_config"]
 if "app_mode" not in st.session_state:
     st.session_state["app_mode"] = "🏁 レース作成"
 
+# Configがなければセットアップへ
 if config is None or "RaceName" not in config:
     st.session_state["app_mode"] = "🏁 レース作成"
 
+# レース開始チェック
 df_for_check = load_data(conn, WORKSHEET_LOG)
 is_race_started = not df_for_check.empty
 
-# サイドバー
+# ▼▼▼ サイドバー：タイトルとモード選択 ▼▼▼
 st.sidebar.markdown(f"""
     <div style="margin-bottom: 20px;">
         <h2 style="margin:0; padding:0; color:white;">🎽 えきでんくん</h2>
@@ -298,15 +303,18 @@ menu_options = [
     "⚙️ 管理者モード"
 ]
 
+# ▼▼▼ 修正: Configが有効(レース中)な場合のみセットアップを隠す (リセット時は隠さない) ▼▼▼
 if is_race_started and config is not None:
     if "🏁 レース作成" in menu_options:
         menu_options.remove("🏁 レース作成")
 
+# 選択ロジック
 def change_mode(m):
     st.session_state["app_mode"] = m
 
 for m in menu_options:
     disabled = False
+    # Config未ロード時の制限
     if (config is None) and (m not in ["🏁 レース作成", "⚙️ 管理者モード"]):
         disabled = True
     
@@ -319,12 +327,14 @@ current_mode = st.session_state["app_mode"]
 # 1. 🏁 レース作成
 # ==========================================
 if current_mode == "🏁 レース作成":
-    st.header("🏁 レース作成")
-    
+    # st.header("🏁 レース作成")
+
+    # ▼▼▼ 修正: レース中なら強制的に記録点モードへ飛ばす ▼▼▼
     if is_race_started and config is not None:
         st.session_state["app_mode"] = "⏱️ 記録点モード"
         st.rerun()
     
+    # 万が一入ってしまった場合のガード
     if is_race_started:
         st.warning("レース進行中のため作成できません。")
         st.stop()
@@ -337,15 +347,18 @@ if current_mode == "🏁 レース作成":
         
         st.divider()
         st.write("チーム設定")
+        
         teams_input = {}
         cols = st.columns(2)
         main_team_options = []
+        
         for i in range(1, team_count + 1):
             with cols[(i-1)%2]:
                 tid = st.text_input(f"Team{i} No.", value=str(i), key=f"tid_{i}")
                 tname = st.text_input(f"Team{i} 名前", value=f"チーム{i}", key=f"tname_{i}")
                 teams_input[tid] = tname
                 main_team_options.append(tid)
+
         st.divider()
         main_team_sel = st.selectbox("★メインチーム", main_team_options)
         
@@ -394,7 +407,8 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     # -------------------------------------
     if current_mode in ["⏱️ 記録点モード", "🎽 中継点モード"]:
         
-        st.markdown(f"<h2 style='text-align:center; margin-bottom:15px;'>{current_mode}</h2>", unsafe_allow_html=True)
+        # ▼▼▼ ページ上部タイトル (手動更新ボタンは削除) ▼▼▼
+        # st.markdown(f"<h2 style='text-align:center; margin-bottom:15px;'>{current_mode}</h2>", unsafe_allow_html=True)
         
         if df.empty:
             st.info("レース前")
@@ -434,12 +448,14 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             km_lap = (now - last_time).total_seconds()
             sec_lap = (now - sec_start_time).total_seconds()
             split = (now - start_time).total_seconds()
+            
             rank = len(df[(df['Section'] == section) & (df['Location'] == location)]) + 1
 
             new_row = [
                 tid, teams_info[tid], section, location, get_time_str(now),
                 fmt_lap(km_lap), fmt_lap(sec_lap), fmt_time(split), str(rank), config["RaceName"]
             ]
+            
             gc = get_gspread_client()
             gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_LOG).append_row(new_row)
             st.cache_data.clear()
@@ -448,11 +464,17 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         target_km = 1
         if current_mode == "⏱️ 記録点モード":
             target_km = st.number_input("記録する地点 (km)", min_value=1, max_value=50, value=1)
+        
         st.write("") 
 
+        # チームボタン一覧
         for tid in team_ids_ordered:
             status = team_status.get(tid)
             t_name = teams_info.get(tid, tid)
+            is_main = (tid == main_team_id)
+            btn_type = "primary" if is_main else "secondary"
+            
+            # ▼▼▼ 変更点: 全チームをPrimary(赤)として扱う ▼▼▼
             btn_type = "primary"
             
             if status is None:
@@ -462,17 +484,23 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             last_loc = str(status['Location'])
             curr_sec_str = str(status['Section'])
 
+            # Finish済みはボタンを押せなくする
             if last_loc == "Finish":
                 st.button(f"🏁 【{tid}】{t_name} (Finish)", disabled=True, key=f"btn_fin_stat_{tid}")
                 continue
 
-            try: curr_sec_num = int(curr_sec_str.replace("区", ""))
-            except: curr_sec_num = 1
+            # ▼▼▼ 修正: 直前がRelayなら、現在は「次の区間」を走っているとみなす ▼▼▼
+            try: 
+                curr_sec_num = int(curr_sec_str.replace("区", ""))
+            except: 
+                curr_sec_num = 1
 
             if last_loc == "Relay":
                 curr_sec_num += 1
                 curr_sec_str = f"{curr_sec_num}区"
+            # ▲▲▲ 修正ここまで ▲▲▲
             
+            # ボタン生成
             with st.container(border=True):
                 c_num, c_btn = st.columns([1.2, 4.8])
                 with c_num:
@@ -486,8 +514,10 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
                             record_point(tid, curr_sec_str, f"{target_km}km")
                             st.rerun()
+
                     elif current_mode == "🎽 中継点モード":
                         is_anchor = (curr_sec_num >= total_sections)
+                        
                         if is_anchor:
                             label = f"🏆 【No.{tid}】 {t_name}  ▶  Finish"
                             if st.button(label, key=f"btn_fin_{tid}", type="primary", use_container_width=True):
@@ -500,6 +530,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                                 record_point(tid, curr_sec_str, "Relay")
                                 st.rerun()
         
+        # ▼▼▼ 追加: ひとつ戻るボタン (最下部・薄めグレー) ▼▼▼
         st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
         if st.button("↩️ 元に戻す", use_container_width=True, type="secondary"):
             try:
@@ -517,7 +548,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 st.error(f"Undoエラー: {e}")
 
     # -------------------------------------
-    # 📣 観戦モード (大幅アップデート v2.0.1)
+    # 📣 観戦モード (v2.0.1で改修)
     # -------------------------------------
     elif current_mode == "📣 観戦モード":
         # 5秒自動更新
@@ -528,11 +559,17 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             st.session_state["watch_tid"] = main_team_id
         
         team_options = {tid: f"【{tid}】{teams_info.get(tid, '')}" for tid in team_ids_ordered}
+        
+        # チームID順序リストの中に保存されているIDがあるか確認し、あればそのインデックスを使う
+        curr_idx = 0
+        if st.session_state["watch_tid"] in team_ids_ordered:
+            curr_idx = team_ids_ordered.index(st.session_state["watch_tid"])
+
         selected_tid = st.selectbox(
             "📣 応援するチームを選択", 
             options=team_ids_ordered, 
             format_func=lambda x: team_options[x],
-            index=team_ids_ordered.index(st.session_state["watch_tid"]) if st.session_state["watch_tid"] in team_ids_ordered else 0
+            index=curr_idx
         )
         st.session_state["watch_tid"] = selected_tid
 
@@ -580,12 +617,14 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             else:
                 show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
-            # 追加提案: ペース表示
+            # 追加: ペース表示
             try:
                 def str_to_sec(s):
                     if ":" not in s: return 0
                     parts = s.split(":")
-                    return int(parts[0])*60 + float(parts[1])
+                    if len(parts)==2: return int(parts[0])*60 + float(parts[1])
+                    if len(parts)==3: return int(parts[0])*3600 + int(parts[1])*60 + float(parts[2])
+                    return 0
                 
                 last_lap_str = str(last['KM-Lap'])
                 last_lap_val = str_to_sec(last_lap_str)
@@ -602,29 +641,32 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
 
             # 4. 前後チーム差
             loc_df = df[(df['Section'] == last['Section']) & (df['Location'] == last['Location'])].sort_values("Time").reset_index(drop=True)
-            my_idx = loc_df[loc_df['TeamID'] == selected_tid].index[0]
             
-            c_prev, c_next = st.columns(2)
-            
-            with c_prev:
-                if my_idx > 0:
-                    prev_row = loc_df.iloc[my_idx - 1]
-                    prev_time_obj = parse_time_str(prev_row['Time'])
-                    diff = (last_time - prev_time_obj).total_seconds()
-                    prev_name = teams_info.get(prev_row['TeamID'], prev_row['TeamID'])
-                    st.info(f"⬆️ 前: **{prev_name}**\n\n+{fmt_time(diff)}")
-                else:
-                    st.success("👑 現在トップ！")
+            # インデックス取得
+            my_indices = loc_df.index[loc_df['TeamID'] == selected_tid].tolist()
+            if my_indices:
+                my_idx = my_indices[0]
+                c_prev, c_next = st.columns(2)
+                
+                with c_prev:
+                    if my_idx > 0:
+                        prev_row = loc_df.iloc[my_idx - 1]
+                        prev_time_obj = parse_time_str(prev_row['Time'])
+                        diff = (last_time - prev_time_obj).total_seconds()
+                        prev_name = teams_info.get(prev_row['TeamID'], prev_row['TeamID'])
+                        st.info(f"⬆️ 前: **{prev_name}**\n\n+{fmt_time(diff)}")
+                    else:
+                        st.success("👑 現在トップ！")
 
-            with c_next:
-                if my_idx < len(loc_df) - 1:
-                    next_row = loc_df.iloc[my_idx + 1]
-                    next_time_obj = parse_time_str(next_row['Time'])
-                    diff = (next_time_obj - last_time).total_seconds()
-                    next_name = teams_info.get(next_row['TeamID'], next_row['TeamID'])
-                    st.warning(f"⬇️ 後ろ: **{next_name}**\n\n-{fmt_time(diff)}")
-                else:
-                    st.write("（後ろはいません）")
+                with c_next:
+                    if my_idx < len(loc_df) - 1:
+                        next_row = loc_df.iloc[my_idx + 1]
+                        next_time_obj = parse_time_str(next_row['Time'])
+                        diff = (next_time_obj - last_time).total_seconds()
+                        next_name = teams_info.get(next_row['TeamID'], next_row['TeamID'])
+                        st.warning(f"⬇️ 後ろ: **{next_name}**\n\n-{fmt_time(diff)}")
+                    else:
+                        st.write("（後ろはいません）")
 
             # 5. 履歴テーブル
             st.write("📝 通過履歴")
@@ -635,6 +677,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     # 📈 分析モード
     # -------------------------------------
     elif current_mode == "📈 分析モード":
+        # st.markdown(f"<h2 style='text-align:center;'>{current_mode}</h2>", unsafe_allow_html=True)
         if st.button("データ更新"):
             st.cache_data.clear()
             st.rerun()
@@ -659,6 +702,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         
         if graph_data:
             g_df = pd.DataFrame(graph_data)
+            import altair as alt
             chart = alt.Chart(g_df).mark_line(point=True).encode(
                 x=alt.X('Point', sort=None, title='通過地点'),
                 y=alt.Y('Rank', scale=alt.Scale(reverse=True), title='順位'),
