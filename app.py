@@ -909,7 +909,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         display_df = pt_df[['Rank', 'Team', 'Split', 'GapSeconds', 'SectionRank', 'LapStr']].copy()
                         display_df = display_df.sort_values('Rank')
                         
-                        display_df.columns = ["通過順位", "チーム名", "Split", "トップとの差", "区間順位", "区間タイム"]
+                        display_df.columns = ["通過順位", "チーム名", "スタートから", "トップとの差", "区間順位", "区間タイム"]
                         display_df['トップとの差'] = display_df['トップとの差'].apply(lambda x: f"+{fmt_time(x)}" if x > 0 else "-")
                         
                         st.dataframe(display_df, use_container_width=True, hide_index=True)
