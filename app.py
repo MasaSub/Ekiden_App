@@ -733,7 +733,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             st.dataframe(history_df, use_container_width=True, hide_index=True)
 
     # -------------------------------------
-    # 📈 分析モード (v2.0.2 強化版)
+    # 📈 分析モード (v2.0.3 修正版)
     # -------------------------------------
     elif current_mode == "📈 分析モード":
         st.header("📈 レース分析")
@@ -766,11 +766,8 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 return f"{sign}{fmt_time(abs(sec))}"
 
             # --- データ前処理 ---
-            # 全データを扱いやすい形に整形
             analysis_data = []
-            # 地点のユニークリスト（Start除く）
             points_order = df[['Section', 'Location']].drop_duplicates()
-            # Startを除外
             points_order = points_order[points_order['Location'] != 'Start']
             
             for _, pt in points_order.iterrows():
@@ -781,13 +778,11 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 p_df = df[(df['Section'] == sec) & (df['Location'] == loc)].copy()
                 if p_df.empty: continue
                 
-                # スプリットタイムでソートして正確な順位とトップ差を計算
+                # スプリットタイムでソート
                 p_df['SplitSeconds'] = p_df['Split'].apply(str_to_sec)
                 p_df = p_df.sort_values('SplitSeconds')
                 
                 top_time = p_df.iloc[0]['SplitSeconds']
-                
-                # 順位付け直し（念のため）
                 p_df['TrueRank'] = range(1, len(p_df) + 1)
                 
                 for _, row in p_df.iterrows():
@@ -795,15 +790,16 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     analysis_data.append({
                         "TeamID": tid,
                         "Team": teams_info.get(tid, tid),
-                        "PointLabel": pt_label, # グラフ用X軸
+                        "PointLabel": pt_label, 
                         "Section": sec,
                         "Location": loc,
                         "Rank": row['TrueRank'],
                         "Split": row['Split'],
                         "SplitSeconds": row['SplitSeconds'],
-                        "GapSeconds": row['SplitSeconds'] - top_time, # トップ差
-                        "LapStr": row['SEC-Lap'], # 区間タイム文字列
-                        "LapSeconds": str_to_sec(row['SEC-Lap']) # 区間タイム秒
+                        "GapSeconds": row['SplitSeconds'] - top_time, 
+                        "LapStr": row['SEC-Lap'], # 区間ラップ(詳細タブ用)
+                        "LapSeconds": str_to_sec(row['SEC-Lap']),
+                        "KMLapStr": row.get('KM-Lap', '-'), # キロラップ(比較タブ用)
                     })
             
             ana_df = pd.DataFrame(analysis_data)
@@ -811,7 +807,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             if ana_df.empty:
                 st.warning("有効な通過データがまだありません")
             else:
-                # タブで機能を分割
                 tab1, tab2, tab3 = st.tabs(["📊 レース推移", "⚔️ 2チーム比較", "📍 地点詳細"])
 
                 # =================================================
@@ -821,33 +816,36 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     graph_type = st.radio("グラフの種類", ["順位変動", "トップ差"], horizontal=True)
                     
                     if graph_type == "順位変動":
-                        # 要件1: 縦操作禁止、自然数メモリ、ツールチップ変更
+                        # 修正: zero=False で0を表示しない
                         chart = alt.Chart(ana_df).mark_line(point=True).encode(
                             x=alt.X('PointLabel', sort=None, title='通過地点'),
                             y=alt.Y('Rank', 
-                                    scale=alt.Scale(domain=[1, len(teams_info)]), # 1位〜チーム数まで固定
-                                    axis=alt.Axis(tickMinStep=1), # 自然数のみ
+                                    scale=alt.Scale(domain=[1, len(teams_info)], zero=False), # 0を含めない
+                                    axis=alt.Axis(tickMinStep=1), 
                                     title='順位 (反転)'
                             ).scale(reverse=True),
                             color='Team',
-                            tooltip=['Team', 'PointLabel', 'Rank', 'Split'] # 要件通り
+                            tooltip=['Team', 'PointLabel', 'Rank', 'Split']
                         ).properties(
                             height=500,
                             title="順位変動グラフ"
-                        ).interactive(bind_y=False) # 縦スクロール禁止 (横のみ操作可)
+                        ).interactive(bind_y=False)
                         
                         st.altair_chart(chart, use_container_width=True)
                         
                     else: # トップ差
-                        # 要件4: トップ差グラフ
+                        # 修正: reverse=True で0(トップ)を上に
                         chart = alt.Chart(ana_df).mark_line(point=True).encode(
                             x=alt.X('PointLabel', sort=None, title='通過地点'),
-                            y=alt.Y('GapSeconds', title='トップとのタイム差 (秒)'),
+                            y=alt.Y('GapSeconds', 
+                                    scale=alt.Scale(reverse=True), # 逆転させる
+                                    title='トップとのタイム差 (下が遅い)'
+                            ),
                             color='Team',
                             tooltip=['Team', 'PointLabel', 'Rank', 'GapSeconds']
                         ).properties(
                             height=500,
-                            title="トップ差推移 (0=先頭)"
+                            title="トップ差推移 (上が先頭)"
                         ).interactive(bind_y=False)
                         
                         st.altair_chart(chart, use_container_width=True)
@@ -863,19 +861,16 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     with cols[0]:
                         team_a_name = st.selectbox("チームA", team_list, index=0)
                     with cols[1]:
-                        # チームBはAと違うものをデフォルトに
                         default_b = 1 if len(team_list) > 1 else 0
                         team_b_name = st.selectbox("チームB", team_list, index=default_b)
 
                     if team_a_name and team_b_name:
-                        # 名前からIDを逆引き（重複名は考慮していませんが簡易実装として）
                         tid_a = [k for k, v in teams_info.items() if v == team_a_name][0]
                         tid_b = [k for k, v in teams_info.items() if v == team_b_name][0]
                         
                         df_a = ana_df[ana_df['TeamID'] == tid_a].set_index('PointLabel')
                         df_b = ana_df[ana_df['TeamID'] == tid_b].set_index('PointLabel')
                         
-                        # 共通の地点を抽出
                         common_points = df_a.index.intersection(df_b.index)
                         
                         if common_points.empty:
@@ -886,25 +881,20 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                                 row_a = df_a.loc[pt]
                                 row_b = df_b.loc[pt]
                                 
-                                # スプリット差 (A - B) マイナスならAが先行
+                                # スプリット差
                                 diff_split = row_a['SplitSeconds'] - row_b['SplitSeconds']
                                 split_leader = team_a_name if diff_split < 0 else team_b_name
                                 if diff_split == 0: split_leader = "同着"
                                 
-                                # ラップ差 (A - B)
-                                diff_lap = row_a['LapSeconds'] - row_b['LapSeconds']
-                                lap_leader = team_a_name if diff_lap < 0 else team_b_name
-                                
+                                # 修正: キロラップを表示、ラップ差などは削除
                                 res_rows.append({
                                     "地点": pt,
                                     f"{team_a_name} 順位": f"{row_a['Rank']}位",
                                     f"{team_b_name} 順位": f"{row_b['Rank']}位",
                                     "タイム差": fmt_time(abs(diff_split)),
                                     "先行": split_leader,
-                                    f"{team_a_name} ラップ": row_a['LapStr'],
-                                    f"{team_b_name} ラップ": row_b['LapStr'],
-                                    "ラップ差": fmt_time(abs(diff_lap)),
-                                    "区間勝者": lap_leader
+                                    f"{team_a_name} 1km": row_a['KMLapStr'], # キロラップ
+                                    f"{team_b_name} 1km": row_b['KMLapStr'], # キロラップ
                                 })
                             
                             st.dataframe(pd.DataFrame(res_rows), use_container_width=True, hide_index=True)
@@ -917,24 +907,17 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     target_pt = st.selectbox("詳細を見たい地点を選択", point_opts)
                     
                     if target_pt:
-                        # その地点のデータを抽出
                         pt_df = ana_df[ana_df['PointLabel'] == target_pt].copy()
-                        
-                        # 区間順位を計算 (LapSecondsでソートしてランク付け)
                         pt_df['SectionRank'] = pt_df['LapSeconds'].rank(method='min').astype(int)
                         
-                        # 表示用に整形
                         display_df = pt_df[['Rank', 'Team', 'Split', 'GapSeconds', 'SectionRank', 'LapStr']].copy()
-                        display_df = display_df.sort_values('Rank') # 通過順位順
+                        display_df = display_df.sort_values('Rank')
                         
                         display_df.columns = ["通過順位", "チーム名", "スプリット", "トップ差(秒)", "区間順位", "区間タイム"]
-                        
-                        # トップ差を読みやすく
                         display_df['トップ差(秒)'] = display_df['トップ差(秒)'].apply(lambda x: f"+{fmt_time(x)}" if x > 0 else "-")
                         
                         st.dataframe(display_df, use_container_width=True, hide_index=True)
                         
-                        # 区間賞の表示
                         best_lap = pt_df.sort_values('LapSeconds').iloc[0]
                         st.success(f"👑 この区間のトップ: **{best_lap['Team']}** ({best_lap['LapStr']})")
 
