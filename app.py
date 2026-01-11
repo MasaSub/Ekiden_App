@@ -395,10 +395,22 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             
             last_loc = str(status['Location'])
             curr_sec_str = str(status['Section'])
-            
+
+            # Finish済みはボタンを押せなくする
             if last_loc == "Finish":
                 st.button(f"🏁 【{tid}】{t_name} (Finish)", disabled=True, key=f"btn_fin_stat_{tid}")
                 continue
+
+            # ▼▼▼ 修正: 直前がRelayなら、現在は「次の区間」を走っているとみなす ▼▼▼
+            try: 
+                curr_sec_num = int(curr_sec_str.replace("区", ""))
+            except: 
+                curr_sec_num = 1
+
+            if last_loc == "Relay":
+                curr_sec_num += 1
+                curr_sec_str = f"{curr_sec_num}区"
+            # ▲▲▲ 修正ここまで ▲▲▲
             
             # ボタン生成
             if current_mode == "⏱️ 記録点モード":
