@@ -389,6 +389,9 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             is_main = (tid == main_team_id)
             btn_type = "primary" if is_main else "secondary"
             
+            # ▼▼▼ 変更点: 全チームをPrimary(赤)として扱う ▼▼▼
+            btn_type = "primary"
+            
             if status is None:
                 st.button(f"【{tid}】{t_name} (No Data)", disabled=True, key=f"btn_none_{tid}")
                 continue
