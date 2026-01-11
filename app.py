@@ -199,7 +199,7 @@ if "app_mode" not in st.session_state:
 
 # Configがなければセットアップへ
 if config is None or "RaceName" not in config:
-    st.session_state["app_mode"] = "🏁 レース"
+    st.session_state["app_mode"] = "🏁 レース作成"
 
 # レース開始チェック
 df_for_check = load_data(conn, WORKSHEET_LOG)
