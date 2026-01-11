@@ -197,7 +197,7 @@ def show_js_timer(km_sec, sec_sec, split_sec):
     <head>
     <style>
         /* 1. Google Fonts の読み込み (Orbitron) */
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@600&display=swap');
 
         body {{ margin: 0; background-color: transparent; font-family: sans-serif; }}
         .timer-container {{
@@ -212,19 +212,19 @@ def show_js_timer(km_sec, sec_sec, split_sec):
         /* 2. フォントの適用 */
         .value {{ 
             font-size: 22px;             /* 少しサイズアップ */
-            font-weight: 700;            /* 太字 */
+            font-weight: 600;            /* 太字 */
             line-height: 1.1; 
-            font-family: 'Orbitron', monospace; /* ここを変更 */
+            font-family: 'Robot Mono', monospace; /* ここを変更 */
             letter-spacing: 1px;         /* 数字の間隔を少し開ける */
         }}
 
         .separator {{ width: 1px; height: 35px; background-color: #555; }}
         .decimal {{ font-size: 0.6em; opacity: 0.7; }}
-        
+
         /* 色設定 */
-        .color-km {{ color: #4bd6ff; text-shadow: 0 0 5px rgba(75, 214, 255, 0.5); }}   /* 発光表現を追加 */
-        .color-sec {{ color: #ff4b4b; text-shadow: 0 0 5px rgba(255, 75, 75, 0.5); }}
-        .color-total {{ color: #ffffff; text-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }}
+        .color-km {{ color: #4bd6ff; 0 0 5px rgba(75, 214, 255, 0.5); }}   /* 発光表現を追加 */
+        .color-sec {{ color: #ff4b4b;  0 0 5px rgba(255, 75, 75, 0.5); }}
+        .color-total {{ color: #ffffff;  0 0 5px rgba(255, 255, 255, 0.5); }}
     </style>
     </head>
     <body>
