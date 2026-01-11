@@ -37,23 +37,18 @@ st.markdown("""
     .stApp { overflow-x: hidden; }
     .block-container { padding-top: 2rem; padding-bottom: 5rem; }
     
-    /* サイドバー */
     section[data-testid="stSidebar"] { background-color: #262730; color: white; }
     
-    /* ボタン共通 */
     div.stButton > button {
         height: 3em; font-size: 16px; font-weight: bold; border-radius: 8px; width: 100%;
     }
-    /* Primaryボタン(赤) */
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B; color: white; height: 3.5em; font-size: 20px;
     }
-    /* メインチーム強調用 */
     .main-team-box {
         border: 2px solid #FF4B4B; padding: 10px; border-radius: 10px; background-color: #2b1e1e;
     }
     
-    /* 数値入力 */
     div[data-testid="stNumberInput"] input { font-size: 1.2rem; font-weight: bold; height: 3rem; }
     div[data-testid="stNumberInput"] button { height: 3rem; width: 3rem; }
 
@@ -102,24 +97,20 @@ def fmt_lap(sec):
     m, s = divmod(total_sec, 60)
     return f"{m:02}:{s:02}.{rem_tenths}"
 
-# --- データ読み込み ---
 def load_data(conn, sheet_name):
     try:
         df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=CACHE_TTL_SEC)
         if not df.empty:
-            # ▼▼▼ 修正: 全列を文字列化し、さらに .0 (浮動小数点のゴミ) を削除する ▼▼▼
             for col in df.columns:
                 df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except:
         return pd.DataFrame()
 
-# --- Config読み込み ---
-def load_config(conn):
+# Config読み込み（APIアクセス）
+def fetch_config_from_sheet(conn):
     try:
-        # ▼▼▼ 修正: 設定は頻繁に変わらないのでキャッシュ時間を長くする(10s -> 600s) ▼▼▼
-        # これによりAPI制限による「読み込み失敗→セットアップ画面戻り」を防ぐ
-        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=600)
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=0) # ttl=0で即時取得
         if df.empty: return None
         config = {}
         for _, row in df.iterrows():
@@ -128,18 +119,16 @@ def load_config(conn):
     except:
         return None
 
-# --- レース初期化・設定保存 ---
+# レース初期化
 def initialize_race(race_name, section_count, teams_dict, main_team_id):
     gc = get_gspread_client()
     sh = gc.open_by_url(SHEET_URL)
     
-    # 1. logシート初期化
     try: ws_log = sh.worksheet(WORKSHEET_LOG)
     except: ws_log = sh.add_worksheet(WORKSHEET_LOG, 1000, 10)
     ws_log.clear()
     ws_log.append_row(["TeamID", "TeamName", "Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Rank", "Race"])
     
-    # 2. configシート作成・保存
     try: ws_conf = sh.worksheet(WORKSHEET_CONFIG)
     except: ws_conf = sh.add_worksheet(WORKSHEET_CONFIG, 100, 2)
     ws_conf.clear()
@@ -156,20 +145,39 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
     
     ws_conf.append_rows(config_data)
     st.cache_data.clear()
+    
+    # ▼▼▼ 修正: 保存した設定を即座にメモリにも反映 ▼▼▼
+    new_config = {}
+    for item in config_data:
+        new_config[item[0]] = item[1]
+    st.session_state["race_config"] = new_config
 
 # ==========================================
-# アプリのモード管理
+# アプリのモード管理 & Configロード
 # ==========================================
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# ▼▼▼ 修正: Configをメモリ(session_state)に保持し、勝手なリロードを防ぐ ▼▼▼
+if "race_config" not in st.session_state:
+    st.session_state["race_config"] = None
+
+# メモリになければ取得を試みる
+if st.session_state["race_config"] is None:
+    loaded_conf = fetch_config_from_sheet(conn)
+    if loaded_conf:
+        st.session_state["race_config"] = loaded_conf
+
+config = st.session_state["race_config"]
+
+# モード初期化
 if "app_mode" not in st.session_state:
     st.session_state["app_mode"] = "🏁 大会セットアップ"
 
-conn = st.connection("gsheets", type=GSheetsConnection)
-config = load_config(conn)
-
+# Configがなければセットアップへ強制遷移
 if config is None or "RaceName" not in config:
     st.session_state["app_mode"] = "🏁 大会セットアップ"
 
-# サイドバーメニュー
+# サイドバー
 st.sidebar.title("メニュー")
 menu_options = [
     "🏁 大会セットアップ",
@@ -185,7 +193,8 @@ def change_mode(m):
 
 for m in menu_options:
     disabled = False
-    if config is None and m != "🏁 大会セットアップ" and m != "⚙️ 管理者モード":
+    # Config未ロード時はセットアップと管理者以外無効化
+    if (config is None) and (m not in ["🏁 大会セットアップ", "⚙️ 管理者モード"]):
         disabled = True
     
     k = "primary" if st.session_state["app_mode"] == m else "secondary"
@@ -194,13 +203,12 @@ for m in menu_options:
 current_mode = st.session_state["app_mode"]
 
 # ==========================================
-# 1. 🏁 大会セットアップ (プロジェクト作成)
+# 1. 🏁 大会セットアップ
 # ==========================================
 if current_mode == "🏁 大会セットアップ":
     st.header("🏁 大会プロジェクト作成")
     st.info("新しいレースの設定を行います。")
     
-    # チーム数設定をフォームの外に出す
     team_count = st.number_input("参加チーム数", min_value=1, max_value=20, value=3)
     
     with st.form("setup_form"):
@@ -234,8 +242,9 @@ if current_mode == "🏁 大会セットアップ":
 # 共通ロジック & 各種モード
 # ==========================================
 elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観戦モード", "📊 分析モード"]:
+    # Configチェック
     if not config:
-        st.error("設定が読み込めません。セットアップを行ってください。")
+        st.error("設定が読み込めません。再度セットアップを行ってください。")
         st.stop()
 
     df = load_data(conn, WORKSHEET_LOG)
@@ -251,7 +260,6 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             teams_info[tid] = v
             team_ids_ordered.append(tid)
     
-    # メインチームを先頭に
     if main_team_id in team_ids_ordered:
         team_ids_ordered.remove(main_team_id)
         team_ids_ordered.insert(0, main_team_id)
@@ -259,18 +267,15 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
     team_status = {}
     if not df.empty:
         for tid in team_ids_ordered:
-            # 型変換済みなので確実にマッチするはず
             t_df = df[df['TeamID'] == tid]
             if not t_df.empty:
                 team_status[tid] = t_df.iloc[-1]
             else:
                 team_status[tid] = None
-    else:
-        pass
 
-    # ==========================================
+    # -------------------------------------
     # ⏱️ 計測(距離) & 🎽 計測(中継)
-    # ==========================================
+    # -------------------------------------
     if current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)"]:
         st.write(f"### {current_mode}")
         
@@ -301,9 +306,13 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             last = t_df.iloc[-1]
             last_time = parse_time_str(last['Time'])
             
-            start_row = t_df[t_df['Location'] == 'Start'].iloc[0]
-            start_time = parse_time_str(start_row['Time'])
-            
+            # Start時刻取得 (チームごとのStartを探す)
+            try:
+                start_row = t_df[t_df['Location'] == 'Start'].iloc[0]
+                start_time = parse_time_str(start_row['Time'])
+            except:
+                start_time = now # データ不整合時の保険
+
             sec_start_time = start_time
             if section != "1区":
                 prev_sec_end = t_df[(t_df['Section'] == f"{int(section.replace('区',''))-1}区") & (t_df['Location'] == 'Relay')]
@@ -332,18 +341,15 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             with c_input:
                 target_km = st.number_input("記録する距離 (km)", min_value=1, max_value=50, value=1)
 
-        # チームごとにパネル表示
+        # チームパネル表示
         for tid in team_ids_ordered:
             status = team_status.get(tid)
-            
-            # データ不整合でもボタンだけは表示して復帰させるための処置
             t_name = teams_info.get(tid, tid)
             is_main = (tid == main_team_id)
             
             if status is None:
-                # データが見つからない場合（エラー表示しつつスキップしない）
                 with st.container(border=True):
-                    st.warning(f"⚠️ {t_name}: データ取得エラー")
+                    st.warning(f"⚠️ {t_name}: データ取得待ち")
                 continue
 
             last_loc = str(status['Location'])
@@ -357,6 +363,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                     st.write(f"Time: {status['Split']}")
                 continue
 
+            # パネル描画
             with st.container(border=True):
                 col_head, col_info = st.columns([1, 2])
                 with col_head:
@@ -366,6 +373,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 with col_info:
                      st.markdown(f"**Split:** `{status['Split']}` / **Lap:** `{status['KM-Lap']}`")
 
+                # ボタン
                 if current_mode == "⏱️ 計測(距離)":
                     btn_label = f"⏱️ {target_km}km を記録"
                     if st.button(btn_label, key=f"btn_dist_{tid}", type="primary" if is_main else "secondary"):
@@ -385,13 +393,12 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                              record_point(tid, curr_sec_str, "Relay")
                              st.rerun()
 
-    # ==========================================
+    # -------------------------------------
     # 📣 観戦モード
-    # ==========================================
+    # -------------------------------------
     elif current_mode == "📣 観戦モード":
         st.sidebar.markdown("---")
         watch_tid = st.sidebar.selectbox("表示チームを選択", team_ids_ordered, format_func=lambda x: teams_info.get(x, x))
-        
         st_autorefresh(interval=5000, key="watch_refresh")
         
         t_df = df[df['TeamID'] == watch_tid]
@@ -401,10 +408,9 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             last = t_df.iloc[-1]
             last_time = parse_time_str(last['Time'])
             now = datetime.now(JST)
-            
             t_name = teams_info.get(watch_tid, watch_tid)
-            st.markdown(f"# 📣 {t_name} 応援中")
             
+            st.markdown(f"# 📣 {t_name} 応援中")
             c1, c2, c3 = st.columns(3)
             c1.metric("現在地", f"{last['Section']} - {last['Location']}")
             c1.caption(f"通過時刻: {last['Time']}")
@@ -416,7 +422,6 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 c2.metric("通過から", fmt_time(elapsed))
             
             c3.metric("区間順位", f"{last['Rank']}位")
-
             st.divider()
             
             loc_df = df[(df['Section'] == last['Section']) & (df['Location'] == last['Location'])].sort_values("Time")
@@ -443,26 +448,22 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 st.write(f"⬇️ 後ろのチーム: **{next_tname}** (差: {fmt_time(diff)})")
 
             st.divider()
-            st.write("履歴")
             st.dataframe(t_df.iloc[::-1][['Section','Location','Time','KM-Lap','Rank']], use_container_width=True)
 
-    # ==========================================
+    # -------------------------------------
     # 📊 分析モード
-    # ==========================================
+    # -------------------------------------
     elif current_mode == "📊 分析モード":
         st.title("📊 レース分析")
-        
         if st.button("データ更新"):
             st.cache_data.clear()
             st.rerun()
 
         points = df[['Section', 'Location']].drop_duplicates()
         graph_data = []
-        
         for _, pt in points.iterrows():
             sec, loc = pt['Section'], pt['Location']
             if loc == 'Start': continue
-            
             p_df = df[(df['Section'] == sec) & (df['Location'] == loc)]
             if not p_df.empty:
                 p_df = p_df.sort_values("Time")
@@ -498,6 +499,13 @@ elif current_mode == "⚙️ 管理者モード":
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
         
+        st.write("### ⚙️ 設定再読み込み")
+        if st.button("設定データを強制リロード"):
+            st.session_state["race_config"] = None
+            st.cache_data.clear()
+            st.rerun()
+
+        st.divider()
         st.write("### 🚨 プロジェクトリセット")
         if st.button("🗑️ 現在のレースデータを全消去 (セットアップに戻る)"):
             gc = get_gspread_client()
@@ -508,6 +516,7 @@ elif current_mode == "⚙️ 管理者モード":
             except: pass
             
             st.cache_data.clear()
+            st.session_state["race_config"] = None
             st.session_state["app_mode"] = "🏁 大会セットアップ"
             st.rerun()
             
