@@ -518,26 +518,23 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             except Exception as e:
                 st.error(f"Undoエラー: {e}")
 
-    # -------------------------------------
-    # 📣 観戦モード (v2.0.1改修 + デザイン調整版)
+   # -------------------------------------
+    # 📣 観戦モード (JSタイマー復帰版)
     # -------------------------------------
     elif current_mode == "📣 観戦モード":
         # 5秒自動更新
         st_autorefresh(interval=5000, key="watch_refresh")
         
-        # 1. チーム選択をメイン上部に配置
+        # 1. チーム選択 (修正維持: No.表記 & ラベル変更)
         if "watch_tid" not in st.session_state:
             st.session_state["watch_tid"] = main_team_id
         
-        # 修正: 表示形式を "No.{tid} {名前}" に変更
         team_options = {tid: f"No.{tid} {teams_info.get(tid, '')}" for tid in team_ids_ordered}
         
-        # チームID順序リストの中に保存されているIDがあるか確認し、あればそのインデックスを使う
         curr_idx = 0
         if st.session_state["watch_tid"] in team_ids_ordered:
             curr_idx = team_ids_ordered.index(st.session_state["watch_tid"])
 
-        # 修正: ラベルを "チーム選択" に変更
         selected_tid = st.selectbox(
             "チーム選択", 
             options=team_ids_ordered, 
@@ -554,9 +551,9 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             last = t_df.iloc[-1]
             last_time = parse_time_str(last['Time'])
             now = datetime.now(JST)
-            # t_name = teams_info.get(selected_tid, selected_tid) # ヘッダー削除のため不要
+            # t_name ... (ヘッダー削除のため不要)
             
-            # --- タイム計算ロジック (既存維持) ---
+            # --- タイム計算 (元のロジック) ---
             try:
                 start_row = t_df[t_df['Location'] == 'Start'].iloc[0]
                 start_time = parse_time_str(start_row['Time'])
@@ -570,15 +567,15 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 if not prev_relay.empty:
                     sec_start_time = parse_time_str(prev_relay.iloc[0]['Time'])
 
-            elapsed_km = (now - last_time).total_seconds() # 最終通過からの経過時間
-            elapsed_sec = (now - sec_start_time).total_seconds() # 区間タイム(Running)
-            elapsed_split = (now - start_time).total_seconds() # 総合タイム(Running)
+            elapsed_km = (now - last_time).total_seconds()
+            elapsed_sec = (now - sec_start_time).total_seconds()
+            elapsed_split = (now - start_time).total_seconds()
             
-            # --- 2 & 3. 順位・現在地パネル & タイム表示 (大幅改修) ---
+            # --- 2. 順位・現在地パネル (修正維持: デザイン統合版) ---
             
-            # 現在地文字列の生成 ("15km" -> "15km ~ 16km" 変換)
+            # 現在地文字列の生成
             loc_raw = last['Location']
-            display_loc = f"{last['Section']} {loc_raw}" # デフォルト
+            display_loc = f"{last['Section']} {loc_raw}"
             
             # "km"が含まれる場合、数値を抽出して範囲表記にする
             import re
@@ -596,7 +593,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             elif loc_raw == "Finish":
                 display_loc = "現在地: フィニッシュ"
 
-            # CSSスタイルとHTMLパネル表示
+            # 黒背景パネルの表示
             st.markdown(f"""
                 <style>
                 .info-panel {{
@@ -625,22 +622,14 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 </div>
             """, unsafe_allow_html=True)
 
-            # 3カラム表示 (LastLap -> キロラップ 等への変更)
-            # fmt_time関数が外部にある前提で利用します
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                # キロラップ: データがあればそれを表示、なければ直近経過時間
-                val = last.get('KM-Lap', '-')
-                st.metric("キロラップ", val)
-            with c2:
-                # 区間ラップ: 現在走っている区間の経過時間
-                st.metric("区間ラップ", fmt_time(elapsed_sec))
-            with c3:
-                # スタートから: 総合経過時間
-                st.metric("スタートから", fmt_time(elapsed_split))
+            # --- 3. JSタイマー (ここを元に戻しました) ---
+            if last['Location'] == 'Finish':
+                st.success(f"🏁 Finish Time: {last['Split']}")
+            else:
+                # ここで元のJSタイマー関数を呼び出す
+                show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
-
-            # 追加: ペース表示 (既存維持)
+            # --- 追加: 直近ペース (元のまま) ---
             try:
                 def str_to_sec(s):
                     if ":" not in s: return 0
@@ -662,10 +651,9 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     """, unsafe_allow_html=True)
             except: pass
 
-            # 4. 前後チーム差 (既存維持)
+            # 4. 前後チーム差 (元のまま)
             loc_df = df[(df['Section'] == last['Section']) & (df['Location'] == last['Location'])].sort_values("Time").reset_index(drop=True)
             
-            # インデックス取得
             my_indices = loc_df.index[loc_df['TeamID'] == selected_tid].tolist()
             if my_indices:
                 my_idx = my_indices[0]
@@ -691,11 +679,11 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     else:
                         st.write("（後ろはいません）")
 
-            # 5. 履歴テーブル (既存維持)
+            # 5. 履歴テーブル (元のまま)
             st.write("📝 通過履歴")
             history_df = t_df[['Section', 'Location', 'Split', 'KM-Lap', 'Rank']].iloc[::-1]
             st.dataframe(history_df, use_container_width=True, hide_index=True)
-            
+
     # -------------------------------------
     # 📈 分析モード
     # -------------------------------------
