@@ -739,7 +739,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         st.header("📈 レース分析")
         
         # データ更新ボタン (secondaryカラー)
-        if st.button("🔄 データを最新に更新", type="secondary", use_container_width=False):
+        if st.button("🔄 データ更新", type="secondary", use_container_width=False):
             st.cache_data.clear()
             st.rerun()
 
@@ -804,10 +804,10 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             if ana_df.empty:
                 st.warning("有効な通過データがまだありません")
             else:
-                tab1, tab2, tab3 = st.tabs(["📊 レース推移", "⚔️ 2チーム比較", "📍 地点詳細"])
+                tab1, tab2, tab3 = st.tabs(["📈 レース推移", "⚔️ チーム比較", "📍 地点別詳細"])
 
                 # =================================================
-                # Tab 1: 📊 レース推移 (グラフ)
+                # Tab 1: 📈 レース推移 (グラフ)
                 # =================================================
                 with tab1:
                     graph_type = st.radio("グラフの種類", ["順位変動", "トップ差"], horizontal=True)
@@ -824,13 +824,12 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                             y=alt.Y('Rank', 
                                     scale=alt.Scale(domain=[1, max_rank], zero=False, nice=False), 
                                     axis=alt.Axis(values=rank_ticks, format='d'), # ここが決定打（自然数のみ指定）
-                                    title='順位 (反転)'
+                                    title='順位'
                             ).scale(reverse=True),
                             color='Team',
                             tooltip=['Team', 'PointLabel', 'Rank', 'Split']
                         ).properties(
-                            height=500,
-                            title="順位変動グラフ"
+                            height=500
                         ).interactive(bind_y=False)
                         
                         st.altair_chart(chart, use_container_width=True)
@@ -840,22 +839,21 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                             x=alt.X('PointLabel', sort=None, title='通過地点'),
                             y=alt.Y('GapSeconds', 
                                     scale=alt.Scale(reverse=True, nice=True),
-                                    title='トップとのタイム差 (下が遅い)'
+                                    title='トップとの差'
                             ),
                             color='Team',
                             tooltip=['Team', 'PointLabel', 'Rank', 'GapSeconds']
                         ).properties(
-                            height=500,
-                            title="トップ差推移 (上が先頭)"
+                            height=500
                         ).interactive(bind_y=False)
                         
                         st.altair_chart(chart, use_container_width=True)
 
                 # =================================================
-                # Tab 2: ⚔️ 2チーム比較 (Head-to-Head)
+                # Tab 2: ⚔️ チーム比較 (Head-to-Head)
                 # =================================================
                 with tab2:
-                    st.markdown("##### 2チーム直接対決")
+                    st.markdown("##### チーム比較")
                     cols = st.columns(2)
                     team_list = list(teams_info.values())
                     
@@ -898,7 +896,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                             st.dataframe(pd.DataFrame(res_rows), use_container_width=True, hide_index=True)
 
                 # =================================================
-                # Tab 3: 📍 地点詳細 (区間順位付き)
+                # Tab 3: 📍 地点別詳細
                 # =================================================
                 with tab3:
                     point_opts = ana_df['PointLabel'].unique()
@@ -911,8 +909,8 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         display_df = pt_df[['Rank', 'Team', 'Split', 'GapSeconds', 'SectionRank', 'LapStr']].copy()
                         display_df = display_df.sort_values('Rank')
                         
-                        display_df.columns = ["通過順位", "チーム名", "スプリット", "トップ差(秒)", "区間順位", "区間タイム"]
-                        display_df['トップ差(秒)'] = display_df['トップ差(秒)'].apply(lambda x: f"+{fmt_time(x)}" if x > 0 else "-")
+                        display_df.columns = ["通過順位", "チーム名", "Split", "トップとの差", "区間順位", "区間タイム"]
+                        display_df['トップとの差'] = display_df['トップとの差'].apply(lambda x: f"+{fmt_time(x)}" if x > 0 else "-")
                         
                         st.dataframe(display_df, use_container_width=True, hide_index=True)
                         
