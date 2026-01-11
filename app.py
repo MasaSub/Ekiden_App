@@ -223,7 +223,7 @@ def show_js_timer(km_sec, sec_sec, split_sec):
             font-family: 'Chakra Petch', sans-serif;
             font-weight: 600;
             font-style: italic; /* 斜体にすると速そうに見える */
-            font-size: 32px;             /* 少しサイズアップ */           /* 太字 */
+            font-size: 26px;             /* 少しサイズアップ */           /* 太字 */
             line-height: 1.1; 
             letter-spacing: 1px;         /* 数字の間隔を少し開ける */
         }}
@@ -238,7 +238,7 @@ def show_js_timer(km_sec, sec_sec, split_sec):
 
         /* スマホ向け調整 (画面幅480px以下) */
         @media (max-width: 480px) {{
-            .value {{ font-size: 22px; letter-spacing: 0; }} /* 文字を小さく */
+            .value {{ font-size: 20px; letter-spacing: 0; }} /* 文字を小さく */
             .label {{ font-size: 9px; }}
             .timer-container {{ padding: 8px 2px; }} /* 余白を詰める */
         }}
