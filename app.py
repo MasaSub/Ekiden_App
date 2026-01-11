@@ -249,6 +249,11 @@ current_mode = st.session_state["app_mode"]
 # ==========================================
 if current_mode == "🏁 レース作成":
     # st.header("🏁 レース作成")
+
+    # ▼▼▼ 修正: レース中なら強制的に記録点モードへ飛ばす ▼▼▼
+    if is_race_started and config is not None:
+        st.session_state["app_mode"] = "⏱️ 記録点モード"
+        st.rerun()
     
     # 万が一入ってしまった場合のガード
     if is_race_started:
@@ -281,7 +286,7 @@ if current_mode == "🏁 レース作成":
         if st.form_submit_button("設定を保存してスタート", type="primary"):
             initialize_race(race_name, section_count, teams_input, main_team_sel)
             st.success("セットアップ完了！")
-            st.session_state["app_mode"] = "⏱️ 記録点"
+            st.session_state["app_mode"] = "⏱️ 記録点モード"
             st.rerun()
 
 # ==========================================
