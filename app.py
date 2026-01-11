@@ -853,7 +853,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 # Tab 2: ⚔️ チーム比較 (Head-to-Head)
                 # =================================================
                 with tab2:
-                    st.markdown("##### チーム比較")
                     cols = st.columns(2)
                     team_list = list(teams_info.values())
                     
@@ -900,7 +899,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 # =================================================
                 with tab3:
                     point_opts = ana_df['PointLabel'].unique()
-                    target_pt = st.selectbox("詳細を見たい地点を選択", point_opts)
+                    target_pt = st.selectbox("地点を選択", point_opts)
                     
                     if target_pt:
                         pt_df = ana_df[ana_df['PointLabel'] == target_pt].copy()
