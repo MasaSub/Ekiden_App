@@ -223,8 +223,8 @@ menu_options = [
     "⚙️ 管理者モード"
 ]
 
-# ▼▼▼ 修正: レース開始後はセットアップをリストから完全に消す ▼▼▼
-if is_race_started:
+# ▼▼▼ 修正: Configが有効(レース中)な場合のみセットアップを隠す (リセット時は隠さない) ▼▼▼
+if is_race_started and config is not None:
     if "🏁 レース作成" in menu_options:
         menu_options.remove("🏁 レース作成")
 
