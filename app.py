@@ -1,5 +1,5 @@
 # ==========================================
-# version = 2.0.4 date = 2026/01/11
+# version = 2.0.5 date = 2026/01/11
 # ==========================================
 
 import streamlit as st
@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 2.0.4"
+VERSION = "ver 2.0.5"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_LOG = "latest-log"
@@ -248,7 +248,6 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
     gc = get_gspread_client()
     sh = gc.open_by_url(SHEET_URL)
     
-    # インデックスシートが存在するか確認し、なければ作成
     try: sh.worksheet(WORKSHEET_INDEX)
     except: 
         ws_idx = sh.add_worksheet(title=WORKSHEET_INDEX, rows=100, cols=10)
@@ -338,7 +337,6 @@ if st.session_state["race_config"] is None:
 config = st.session_state["race_config"]
 if "app_mode" not in st.session_state: st.session_state["app_mode"] = "🏁 レース作成"
 
-# 修正ポイント: Configがなくても「過去レース」「管理者」はアクセス可能にする
 if (config is None or "RaceName" not in config) and st.session_state["app_mode"] not in ["📂 過去のレース", "⚙️ 管理者モード"]:
     st.session_state["app_mode"] = "🏁 レース作成"
 
@@ -362,7 +360,7 @@ menu_options = [
     "📣 観戦モード",
     "📈 分析モード",
     "🏆 最終結果",
-    "📂 過去のレース", # 新規追加
+    "📂 過去のレース", 
     "⚙️ 管理者モード"
 ]
 
@@ -376,7 +374,6 @@ def change_mode(m):
 
 for m in menu_options:
     disabled = False
-    # 修正ポイント: 過去レース閲覧はConfig依存から除外
     if (config is None) and (m not in ["🏁 レース作成", "⚙️ 管理者モード", "📂 過去のレース"]):
         disabled = True
     
@@ -527,7 +524,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         st.rerun()
         
         st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
-        # 修正: 自動遷移削除のため、手動ボタンもここには配置しない（管理者に集約）
+        # 修正: Undoボタンのみ配置
         if st.button("↩️ 元に戻す", use_container_width=True, type="secondary"):
             try:
                 gc = get_gspread_client()
@@ -692,8 +689,12 @@ elif current_mode == "⚙️ 管理者モード":
             try:
                 gc = get_gspread_client()
                 sh = gc.open_by_url(SHEET_URL)
+                
+                # 修正: ヘッダー付きでシート作成
                 try: ws_idx = sh.worksheet(WORKSHEET_INDEX)
-                except: ws_idx = sh.add_worksheet(WORKSHEET_INDEX, 100, 10)
+                except: 
+                    ws_idx = sh.add_worksheet(WORKSHEET_INDEX, 100, 10)
+                    ws_idx.append_row(["RaceID", "RaceName", "Date", "LogSheet", "ConfigSheet", "Note"])
                 
                 ts = datetime.now(JST).strftime('%Y%m%d_%H%M%S')
                 race_id = f"race_{ts}"
@@ -716,6 +717,24 @@ elif current_mode == "⚙️ 管理者モード":
                 st.success(f"アーカイブ完了！: {race_id}")
                 st.rerun()
             except Exception as e: st.error(f"アーカイブエラー: {e}")
+        
+        # 修正: アーカイブ修復ボタンの追加
+        st.write("### 🔧 トラブルシューティング")
+        if st.button("🔧 アーカイブ一覧が表示されない場合の修復"):
+            gc = get_gspread_client()
+            sh = gc.open_by_url(SHEET_URL)
+            try:
+                ws_idx = sh.worksheet(WORKSHEET_INDEX)
+                vals = ws_idx.get_all_values()
+                # ヘッダーが無い、または間違っている場合に挿入
+                if not vals or vals[0][0] != "RaceID":
+                    ws_idx.insert_row(["RaceID", "RaceName", "Date", "LogSheet", "ConfigSheet", "Note"], index=1)
+                    st.success("インデックスシートのヘッダーを修復しました。")
+                    st.cache_data.clear()
+                else:
+                    st.info("インデックスシートは正常のようです。")
+            except Exception as e:
+                st.error(f"修復エラー: {e}")
 
         st.divider()
         st.write("### 🚨 プロジェクトリセット (アーカイブなし)")
