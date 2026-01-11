@@ -62,7 +62,7 @@ st.markdown("""
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B; 
         color: white; 
-        border: 2px solid #ff9999;
+        border: 1px solid #555;
     }
     
     /* Secondaryボタン(ダーク) */
