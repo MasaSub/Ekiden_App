@@ -733,12 +733,12 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             st.dataframe(history_df, use_container_width=True, hide_index=True)
 
     # -------------------------------------
-    # 📈 分析モード (v2.0.3 修正版)
+    # 📈 分析モード (v2.0.4 修正版)
     # -------------------------------------
     elif current_mode == "📈 分析モード":
         st.header("📈 レース分析")
         
-        # 修正: ボタンの色を赤(primary)から通常(secondary)に変更
+        # データ更新ボタン (secondaryカラー)
         if st.button("🔄 データを最新に更新", type="secondary", use_container_width=False):
             st.cache_data.clear()
             st.rerun()
@@ -812,16 +812,18 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 with tab1:
                     graph_type = st.radio("グラフの種類", ["順位変動", "トップ差"], horizontal=True)
                     
-                    # チーム数を取得（Y軸の最大値設定用）
+                    # チーム数（最大順位）を取得
                     max_rank = len(teams_info) if len(teams_info) > 0 else 1
+                    # 1位から最下位までのリストを作成 (例: [1, 2, 3, 4, 5])
+                    rank_ticks = list(range(1, max_rank + 1))
 
                     if graph_type == "順位変動":
-                        # 修正: nice=False を追加して 0 や余分な目盛りへの拡張を防ぐ
+                        # 修正: axis=alt.Axis(values=rank_ticks) で目盛りを強制指定して0を排除
                         chart = alt.Chart(ana_df).mark_line(point=True).encode(
                             x=alt.X('PointLabel', sort=None, title='通過地点'),
                             y=alt.Y('Rank', 
-                                    scale=alt.Scale(domain=[1, max_rank], zero=False, nice=False), # ここが重要
-                                    axis=alt.Axis(tickMinStep=1, tickCount=max_rank), # メモリ数をチーム数に固定
+                                    scale=alt.Scale(domain=[1, max_rank], zero=False, nice=False), 
+                                    axis=alt.Axis(values=rank_ticks, format='d'), # ここが決定打（自然数のみ指定）
                                     title='順位 (反転)'
                             ).scale(reverse=True),
                             color='Team',
@@ -837,7 +839,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         chart = alt.Chart(ana_df).mark_line(point=True).encode(
                             x=alt.X('PointLabel', sort=None, title='通過地点'),
                             y=alt.Y('GapSeconds', 
-                                    scale=alt.Scale(reverse=True, nice=True), # 見やすくするためにniceはTrueでOK
+                                    scale=alt.Scale(reverse=True, nice=True),
                                     title='トップとのタイム差 (下が遅い)'
                             ),
                             color='Team',
