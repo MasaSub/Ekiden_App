@@ -36,7 +36,7 @@ st.markdown("""
     .stApp { overflow-x: hidden; }
     
     /* 全体の余白を詰める */
-    .block-container { padding-top: 2rem; padding-bottom: 3rem; padding-left: 0.5rem; padding-right: 0.5rem; }
+    .block-container { padding-top: 5rem; padding-bottom: 3rem; padding-left: 0.5rem; padding-right: 0.5rem; }
     
     section[data-testid="stSidebar"] { background-color: #262730; color: white; }
     
