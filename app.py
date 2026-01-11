@@ -247,7 +247,7 @@ current_mode = st.session_state["app_mode"]
 # 1. 🏁 レース作成
 # ==========================================
 if current_mode == "🏁 レース作成":
-    st.header("🏁 レース作成")
+    # st.header("🏁 レース作成")
     
     # 万が一入ってしまった場合のガード
     if is_race_started:
@@ -323,7 +323,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     if current_mode in ["⏱️ 記録点モード", "🎽 中継点モード"]:
         
         # ▼▼▼ ページ上部タイトル (手動更新ボタンは削除) ▼▼▼
-        st.markdown(f"<h2 style='text-align:center; margin-bottom:15px;'>{current_mode}</h2>", unsafe_allow_html=True)
+        # st.markdown(f"<h2 style='text-align:center; margin-bottom:15px;'>{current_mode}</h2>", unsafe_allow_html=True)
         
         if df.empty:
             st.info("レース前")
@@ -457,7 +457,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     # 📣 観戦モード
     # -------------------------------------
     elif current_mode == "📣 観戦モード":
-        st.markdown(f"<h2 style='text-align:center;'>{current_mode}</h2>", unsafe_allow_html=True)
+        # st.markdown(f"<h2 style='text-align:center;'>{current_mode}</h2>", unsafe_allow_html=True)
         st.sidebar.markdown("---")
         watch_tid = st.sidebar.selectbox("表示チームを選択", team_ids_ordered, format_func=lambda x: teams_info.get(x, x))
         st_autorefresh(interval=5000, key="watch_refresh")
@@ -515,7 +515,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     # 📈 分析モード
     # -------------------------------------
     elif current_mode == "📈 分析モード":
-        st.markdown(f"<h2 style='text-align:center;'>{current_mode}</h2>", unsafe_allow_html=True)
+        # st.markdown(f"<h2 style='text-align:center;'>{current_mode}</h2>", unsafe_allow_html=True)
         if st.button("データ更新"):
             st.cache_data.clear()
             st.rerun()
