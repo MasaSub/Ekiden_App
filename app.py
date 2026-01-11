@@ -197,8 +197,7 @@ def show_js_timer(km_sec, sec_sec, split_sec):
     <head>
     <style>
         /* 1. Google Fonts の読み込み (Orbitron) */
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-        body {{ margin: 0; background-color: transparent; font-family: sans-serif; }}
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');        body {{ margin: 0; background-color: transparent; font-family: sans-serif; }}
         .timer-container {{
             display: flex; justify-content: space-between; align-items: center;
             background-color: #262730; padding: 10px 5px; border-radius: 12px;
@@ -210,10 +209,10 @@ def show_js_timer(km_sec, sec_sec, split_sec):
 
         /* 2. フォントの適用 */
         .value {{ 
-            font-size: 24px;             /* 少しサイズアップ */
+            font-size: 28px;             /* 少しサイズアップ */
             font-weight: 700;            /* 太字 */
-            line-height: 1.1; 
-            font-family: 'Share Tech Mono', monospace; /* ここを変更 */
+            line-height: 2; 
+            font-family: 'VT323', monospace; /* ここを変更 */
             letter-spacing: 1px;         /* 数字の間隔を少し開ける */
         }}
 
