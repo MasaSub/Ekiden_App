@@ -202,12 +202,21 @@ def show_js_timer(km_sec, sec_sec, split_sec):
         body {{ margin: 0; background-color: transparent; font-family: sans-serif; }}
         .timer-container {{
             display: flex; justify-content: space-between; align-items: center;
-            background-color: #262730; padding: 10px 5px; border-radius: 12px;
-            border: 1px solid #444; color: white;
-            box-sizing: border-box; width: 100%; margin-bottom: 5px;
+            background-color: #262730; 
+            padding: 10px 5px; 
+            border-radius: 12px;
+            border: 1px solid #444; 
+            color: white;
+            box-sizing: border-box; /* 重要: paddingを含めて100%にする */
+            width: 100%; 
+            margin-bottom: 5px;
+            overflow: hidden; /* はみ出し防止 */
         }}
-        .timer-box {{ text-align: center; flex: 1; }}
-        .label {{ font-size: 11px; color: #ccc; margin-bottom: 4px; letter-spacing: 0.5px; }}
+        .timer-box {{ text-align: center; flex: 1; min-width: 0; /* フレックスアイテムの縮小を許可 */ }}
+        label {{ 
+            font-size: 11px; color: #ccc; margin-bottom: 4px; letter-spacing: 0.5px;
+            white-space: nowrap; /* 折り返し防止 */
+        }}
 
         /* 2. フォントの適用 */
         .value {{ 
@@ -226,6 +235,13 @@ def show_js_timer(km_sec, sec_sec, split_sec):
         .color-km {{ color: #4bd6ff; 0 0 5px rgba(75, 214, 255, 0.5); }}   /* 発光表現を追加 */
         .color-sec {{ color: #ff4b4b;  0 0 5px rgba(255, 75, 75, 0.5); }}
         .color-total {{ color: #ffffff;  0 0 5px rgba(255, 255, 255, 0.5); }}
+
+        /* スマホ向け調整 (画面幅480px以下) */
+        @media (max-width: 480px) {{
+            .value {{ font-size: 16px; letter-spacing: 0; }} /* 文字を小さく */
+            .label {{ font-size: 9px; }}
+            .timer-container {{ padding: 8px 2px; }} /* 余白を詰める */
+        }}
     </style>
     </head>
     <body>
@@ -552,7 +568,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             except Exception as e:
                 st.error(f"Undoエラー: {e}")
 
-   # -------------------------------------
+    # -------------------------------------
     # 📣 観戦モード (JSタイマー復帰版)
     # -------------------------------------
     elif current_mode == "📣 観戦モード":
@@ -637,6 +653,8 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     margin-bottom: 20px;
                     border: 1px solid #4f4f4f;
                     text-align: center;
+                    box-sizing: border-box; /* これではみ出し防止 */
+                    width: 100%;
                 }}
                 .rank-text {{
                     font-size: 32px;
@@ -647,6 +665,10 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 .loc-text {{
                     font-size: 20px;
                     color: #e0e0e0;
+                }}
+                @media (max-width: 480px) {{
+                .rank-text {{ font-size: 26px; }}
+                .loc-text {{ font-size: 16px; }}
                 }}
                 </style>
                 
@@ -665,22 +687,12 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
 
             # --- 追加: 直近ペース (元のまま) ---
             try:
-                def str_to_sec(s):
-                    if ":" not in s: return 0
-                    parts = s.split(":")
-                    if len(parts)==2: return int(parts[0])*60 + float(parts[1])
-                    if len(parts)==3: return int(parts[0])*3600 + int(parts[1])*60 + float(parts[2])
-                    return 0
-                
-                last_lap_str = str(last.get('KM-Lap', '0:00'))
-                last_lap_val = str_to_sec(last_lap_str)
-                
-                if last_lap_val > 0 and "km" in str(last['Location']):
-                    pace_min = int(last_lap_val // 60)
-                    pace_sec = int(last_lap_val % 60)
+                last_lap_str = str(last.get('KM-Lap', '-'))
+                # 値が存在する場合のみ表示
+                if last_lap_str and last_lap_str != "nan":
                     st.markdown(f"""
-                        <div style='text-align: center; background-color: #333; padding: 5px; border-radius: 5px; margin-bottom: 10px; margin-top: 10px;'>
-                            🏃 直近ペース: <span style='font-weight:bold; color:#4bd6ff;'>{pace_min}:{pace_sec:02} /km</span>
+                        <div style='text-align: center; background-color: #333; padding: 8px; border-radius: 5px; margin-bottom: 10px; margin-top: 10px; width: 100%; box-sizing: border-box;'>
+                            ⏱️ 直近のラップ: <span style='font-weight:bold; color:#4bd6ff; font-family: monospace; font-size: 1.1em;'>{last_lap_str}</span>
                         </div>
                     """, unsafe_allow_html=True)
             except: pass
