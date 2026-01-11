@@ -1,5 +1,5 @@
 # ==========================================
-# version = 2.0.8 date = 2026/01/11
+# version = 2.0.0 date = 2026/01/11
 # ==========================================
 
 import streamlit as st
@@ -16,7 +16,7 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 2.0.8"
+VERSION = "ver 2.0.0"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_LOG = "latest-log"
@@ -36,7 +36,7 @@ st.markdown("""
     .stApp { overflow-x: hidden; }
     
     /* 全体の余白を詰める */
-    .block-container { padding-top: 1rem; padding-bottom: 3rem; padding-left: 0.5rem; padding-right: 0.5rem; }
+    .block-container { padding-top: 2rem; padding-bottom: 3rem; padding-left: 0.5rem; padding-right: 0.5rem; }
     
     section[data-testid="stSidebar"] { background-color: #262730; color: white; }
     
@@ -57,7 +57,7 @@ st.markdown("""
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B; 
         color: white; 
-        border: 2px solid #ff9999;
+        border: 1px solid #555; 
     }
     
     /* Secondaryボタン(ダーク) */
@@ -72,9 +72,8 @@ st.markdown("""
         color: white;
     }
     
-    /* ▼▼▼ 追加: 最後のボタン(Undo)を薄めグレーにするハック ▼▼▼ */
-    /* メインエリア(block-container)内の最後のボタンをターゲットにする */
-    div.block-container > div[data-testid="stVerticalBlock"] > div:last-child button {
+    /* ▼▼▼ 修正: Secondaryボタンの場合のみ、最後のボタン(Undo)を薄めグレーにする ▼▼▼ */
+    div.block-container > div[data-testid="stVerticalBlock"] > div:last-child button[kind="secondary"] {
         background-color: #555555 !important; /* 薄めグレー */
         color: #eeeeee !important;
         border: 1px solid #777 !important;
@@ -195,17 +194,17 @@ if st.session_state["race_config"] is None:
 config = st.session_state["race_config"]
 
 if "app_mode" not in st.session_state:
-    st.session_state["app_mode"] = "🏁 大会セットアップ"
+    st.session_state["app_mode"] = "🏁 レース作成"
 
 # Configがなければセットアップへ
 if config is None or "RaceName" not in config:
-    st.session_state["app_mode"] = "🏁 大会セットアップ"
+    st.session_state["app_mode"] = "🏁 レース"
 
 # レース開始チェック
 df_for_check = load_data(conn, WORKSHEET_LOG)
 is_race_started = not df_for_check.empty
 
-# ▼▼▼ サイドバー：タイトルとメニュー ▼▼▼
+# ▼▼▼ サイドバー：タイトルとモード選択 ▼▼▼
 st.sidebar.markdown(f"""
     <div style="margin-bottom: 20px;">
         <h2 style="margin:0; padding:0; color:white;">🎽 えきでんくん</h2>
@@ -213,21 +212,21 @@ st.sidebar.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-st.sidebar.title("メニュー")
+st.sidebar.title("モード選択")
 
 menu_options = [
-    "🏁 大会セットアップ",
-    "⏱️ 計測(距離)",
-    "🎽 計測(中継)",
+    "🏁 レース作成",
+    "⏱️ 記録点モード",
+    "🎽 中継点モード",
     "📣 観戦モード",
-    "📊 分析モード",
+    "📈 分析モード",
     "⚙️ 管理者モード"
 ]
 
 # ▼▼▼ 修正: レース開始後はセットアップをリストから完全に消す ▼▼▼
 if is_race_started:
-    if "🏁 大会セットアップ" in menu_options:
-        menu_options.remove("🏁 大会セットアップ")
+    if "🏁 レース作成" in menu_options:
+        menu_options.remove("🏁 レース作成")
 
 # 選択ロジック
 def change_mode(m):
@@ -236,7 +235,7 @@ def change_mode(m):
 for m in menu_options:
     disabled = False
     # Config未ロード時の制限
-    if (config is None) and (m not in ["🏁 大会セットアップ", "⚙️ 管理者モード"]):
+    if (config is None) and (m not in ["🏁 レース作成", "⚙️ 管理者モード"]):
         disabled = True
     
     k = "primary" if st.session_state["app_mode"] == m else "secondary"
@@ -245,21 +244,21 @@ for m in menu_options:
 current_mode = st.session_state["app_mode"]
 
 # ==========================================
-# 1. 🏁 大会セットアップ
+# 1. 🏁 レース作成
 # ==========================================
-if current_mode == "🏁 大会セットアップ":
-    st.header("🏁 大会プロジェクト作成")
+if current_mode == "🏁 レース作成":
+    st.header("🏁 レース作成")
     
     # 万が一入ってしまった場合のガード
     if is_race_started:
-        st.warning("レース中のためセットアップは変更できません。")
+        st.warning("レース進行中のため作成できません。")
         st.stop()
 
-    team_count = st.number_input("参加チーム数", min_value=1, max_value=20, value=3)
+    team_count = st.number_input("チーム数", min_value=1, max_value=20, value=3)
     
     with st.form("setup_form"):
         race_name = st.text_input("レース名", value=f"Race_{datetime.now(JST).strftime('%Y%m%d')}")
-        section_count = st.number_input("全区間数", min_value=1, value=5)
+        section_count = st.number_input("区間数", min_value=1, value=5)
         
         st.divider()
         st.write("チーム設定")
@@ -270,24 +269,24 @@ if current_mode == "🏁 大会セットアップ":
         
         for i in range(1, team_count + 1):
             with cols[(i-1)%2]:
-                tid = st.text_input(f"チーム{i} ID", value=str(i), key=f"tid_{i}")
-                tname = st.text_input(f"チーム{i} 名前", value=f"チーム{i}", key=f"tname_{i}")
+                tid = st.text_input(f"Team{i} No.", value=str(i), key=f"tid_{i}")
+                tname = st.text_input(f"Team{i} 名前", value=f"チーム{i}", key=f"tname_{i}")
                 teams_input[tid] = tname
                 main_team_options.append(tid)
 
         st.divider()
-        main_team_sel = st.selectbox("★メインチーム (強調表示)", main_team_options)
+        main_team_sel = st.selectbox("★メインチーム", main_team_options)
         
         if st.form_submit_button("設定を保存してスタート", type="primary"):
             initialize_race(race_name, section_count, teams_input, main_team_sel)
             st.success("セットアップ完了！")
-            st.session_state["app_mode"] = "⏱️ 計測(距離)"
+            st.session_state["app_mode"] = "⏱️ 記録点"
             st.rerun()
 
 # ==========================================
 # 共通ロジック & 各種モード
 # ==========================================
-elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観戦モード", "📊 分析モード"]:
+elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "📣 観戦モード", "📈 分析モード"]:
     if not config:
         st.error("設定が読み込めません。")
         st.stop()
@@ -319,16 +318,16 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 team_status[tid] = None
 
     # -------------------------------------
-    # ⏱️ 計測(距離) & 🎽 計測(中継)
+    # ⏱️ 記録点モード & 🎽 中継点モード
     # -------------------------------------
-    if current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)"]:
+    if current_mode in ["⏱️ 記録点モード", "🎽 中継点モード"]:
         
         # ▼▼▼ ページ上部タイトル (手動更新ボタンは削除) ▼▼▼
         st.markdown(f"<h2 style='text-align:center; margin-bottom:15px;'>{current_mode}</h2>", unsafe_allow_html=True)
         
         if df.empty:
-            st.info("データがありません")
-            if st.button("🔫 全チーム一斉スタート", type="primary"):
+            st.info("レース前")
+            if st.button("🔫 スタート", type="primary"):
                 now = datetime.now(JST)
                 start_rows = []
                 for tid in team_ids_ordered:
@@ -378,8 +377,8 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             st.toast(f"{teams_info[tid]}: {location} 記録完了")
 
         target_km = 1
-        if current_mode == "⏱️ 計測(距離)":
-            target_km = st.number_input("記録する距離 (km)", min_value=1, max_value=50, value=1)
+        if current_mode == "⏱️ 記録点モード":
+            target_km = st.number_input("記録する地点 (km)", min_value=1, max_value=50, value=1)
         
         st.write("") 
 
@@ -402,13 +401,13 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 continue
             
             # ボタン生成
-            if current_mode == "⏱️ 計測(距離)":
+            if current_mode == "⏱️ 記録点モード":
                 label = f"【No.{tid}】 {t_name}  ▶  {target_km}km"
                 if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
                     record_point(tid, curr_sec_str, f"{target_km}km")
                     st.rerun()
 
-            elif current_mode == "🎽 計測(中継)":
+            elif current_mode == "🎽 中継点モード":
                 try: curr_sec_num = int(curr_sec_str.replace("区", ""))
                 except: curr_sec_num = 1
                 is_anchor = (curr_sec_num >= total_sections)
@@ -427,7 +426,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
         
         # ▼▼▼ 追加: ひとつ戻るボタン (最下部・薄めグレー) ▼▼▼
         st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
-        if st.button("↩️ ひとつ戻る (直前の記録を取り消す)", use_container_width=True):
+        if st.button("↩️ 元に戻す", use_container_width=True):
             try:
                 gc = get_gspread_client()
                 ws = gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_LOG)
@@ -501,9 +500,9 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             st.dataframe(t_df.iloc[::-1][['Section','Location','Time','KM-Lap','Rank']], use_container_width=True)
 
     # -------------------------------------
-    # 📊 分析モード
+    # 📈 分析モード
     # -------------------------------------
-    elif current_mode == "📊 分析モード":
+    elif current_mode == "📈 分析モード":
         st.markdown(f"<h2 style='text-align:center;'>{current_mode}</h2>", unsafe_allow_html=True)
         if st.button("データ更新"):
             st.cache_data.clear()
@@ -544,7 +543,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
 # ⚙️ 管理者モード
 # ==========================================
 elif current_mode == "⚙️ 管理者モード":
-    st.header("⚙️ 管理者メニュー")
+    st.header("⚙️ 管理者モード選択")
     pwd = st.text_input("パスワード", type="password")
     
     if pwd == ADMIN_PASSWORD:
@@ -567,7 +566,7 @@ elif current_mode == "⚙️ 管理者モード":
             
             st.cache_data.clear()
             st.session_state["race_config"] = None
-            st.session_state["app_mode"] = "🏁 大会セットアップ"
+            st.session_state["app_mode"] = "🏁 レース作成"
             st.rerun()
             
         st.divider()
