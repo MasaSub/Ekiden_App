@@ -55,11 +55,16 @@ st.markdown("""
         border: 2px solid #ff9999;
     }
     
-    /* Secondaryボタン(白: 他チーム) */
+    /* Secondaryボタン(ダーク: 他チーム) */
     div.stButton > button[kind="secondary"] {
-        background-color: #f0f2f6; 
-        color: #31333F;
-        border: 1px solid #d0d2d6;
+        background-color: #262730; /* 暗いグレー */
+        color: white;              /* 白文字 */
+        border: 1px solid #555;    /* 枠線を目立たなく */
+    }
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #444;    /* ホバー時少し明るく */
+        border-color: #888;
+        color: white;
     }
 
     /* 数値入力 */
