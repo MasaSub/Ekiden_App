@@ -30,7 +30,7 @@ ADMIN_PASSWORD = "0000"
 st.set_page_config(page_title="えきでんくん", page_icon="🎽", layout="wide")
 
 # ==========================================
-# CSSデザイン定義 (v2.0.0そのまま)
+# CSSデザイン定義 (v2.0.0準拠)
 # ==========================================
 st.markdown("""
     <style>
@@ -73,9 +73,9 @@ st.markdown("""
         color: white;
     }
     
-    /* ▼▼▼ 修正: Secondaryボタンの場合のみ、最後のボタン(Undo)を薄めグレーにする ▼▼▼ */
+    /* 最後のボタン(Undo)を薄めグレーにする */
     div.block-container > div[data-testid="stVerticalBlock"] > div:last-child button[kind="secondary"] {
-        background-color: #555555 !important; /* 薄めグレー */
+        background-color: #555555 !important;
         color: #eeeeee !important;
         border: 1px solid #777 !important;
     }
@@ -133,10 +133,8 @@ def load_data(conn, sheet_name):
                 df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except Exception:
-        # 読み込み失敗時は空のDataFrameを返す（画面真っ白回避）
         return pd.DataFrame()
 
-# Config読み込み
 def fetch_config_from_sheet(conn):
     try:
         df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=0)
@@ -148,20 +146,19 @@ def fetch_config_from_sheet(conn):
     except:
         return None
 
-# レース初期化
 def initialize_race(race_name, section_count, teams_dict, main_team_id):
     gc = get_gspread_client()
     sh = gc.open_by_url(SHEET_URL)
-    
-    try: ws_log = sh.worksheet(WORKSHEET_LOG)
-    except: ws_log = sh.add_worksheet(WORKSHEET_LOG, 1000, 10)
-    ws_log.clear()
-    ws_log.append_row(["TeamID", "TeamName", "Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Rank", "Race"])
-    
-    try: ws_conf = sh.worksheet(WORKSHEET_CONFIG)
-    except: ws_conf = sh.add_worksheet(WORKSHEET_CONFIG, 100, 2)
-    ws_conf.clear()
-    ws_conf.append_row(["Key", "Value"])
+    try: 
+        ws_log = sh.worksheet(WORKSHEET_LOG)
+        ws_log.clear()
+        ws_log.append_row(["TeamID", "TeamName", "Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Rank", "Race"])
+    except: pass
+    try: 
+        ws_conf = sh.worksheet(WORKSHEET_CONFIG)
+        ws_conf.clear()
+        ws_conf.append_row(["Key", "Value"])
+    except: pass
     
     config_data = [
         ["RaceName", race_name],
@@ -180,7 +177,7 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
         new_config[item[0]] = item[1]
     st.session_state["race_config"] = new_config
 
-# ▼▼▼ 追加: JSタイマー表示関数 (v2.0.1) ▼▼▼
+# ▼▼▼ JavaScriptタイマー表示関数 (v2.0.1で追加) ▼▼▼
 def show_js_timer(km_sec, sec_sec, split_sec):
     km_ms = int(km_sec * 1000)
     sec_ms = int(sec_sec * 1000)
@@ -276,15 +273,13 @@ config = st.session_state["race_config"]
 if "app_mode" not in st.session_state:
     st.session_state["app_mode"] = "🏁 レース作成"
 
-# Configがなければセットアップへ
 if config is None or "RaceName" not in config:
     st.session_state["app_mode"] = "🏁 レース作成"
 
-# レース開始チェック
 df_for_check = load_data(conn, WORKSHEET_LOG)
 is_race_started = not df_for_check.empty
 
-# ▼▼▼ サイドバー：タイトルとモード選択 ▼▼▼
+# サイドバー
 st.sidebar.markdown(f"""
     <div style="margin-bottom: 20px;">
         <h2 style="margin:0; padding:0; color:white;">🎽 えきでんくん</h2>
@@ -303,18 +298,15 @@ menu_options = [
     "⚙️ 管理者モード"
 ]
 
-# ▼▼▼ 修正: Configが有効(レース中)な場合のみセットアップを隠す (リセット時は隠さない) ▼▼▼
 if is_race_started and config is not None:
     if "🏁 レース作成" in menu_options:
         menu_options.remove("🏁 レース作成")
 
-# 選択ロジック
 def change_mode(m):
     st.session_state["app_mode"] = m
 
 for m in menu_options:
     disabled = False
-    # Config未ロード時の制限
     if (config is None) and (m not in ["🏁 レース作成", "⚙️ 管理者モード"]):
         disabled = True
     
@@ -327,14 +319,12 @@ current_mode = st.session_state["app_mode"]
 # 1. 🏁 レース作成
 # ==========================================
 if current_mode == "🏁 レース作成":
-    # st.header("🏁 レース作成")
-
-    # ▼▼▼ 修正: レース中なら強制的に記録点モードへ飛ばす ▼▼▼
+    st.header("🏁 レース作成")
+    
     if is_race_started and config is not None:
         st.session_state["app_mode"] = "⏱️ 記録点モード"
         st.rerun()
     
-    # 万が一入ってしまった場合のガード
     if is_race_started:
         st.warning("レース進行中のため作成できません。")
         st.stop()
@@ -344,21 +334,17 @@ if current_mode == "🏁 レース作成":
     with st.form("setup_form"):
         race_name = st.text_input("レース名", value=f"Race_{datetime.now(JST).strftime('%Y%m%d')}")
         section_count = st.number_input("区間数", min_value=1, value=5)
-        
         st.divider()
         st.write("チーム設定")
-        
         teams_input = {}
         cols = st.columns(2)
         main_team_options = []
-        
         for i in range(1, team_count + 1):
             with cols[(i-1)%2]:
                 tid = st.text_input(f"Team{i} No.", value=str(i), key=f"tid_{i}")
                 tname = st.text_input(f"Team{i} 名前", value=f"チーム{i}", key=f"tname_{i}")
                 teams_input[tid] = tname
                 main_team_options.append(tid)
-
         st.divider()
         main_team_sel = st.selectbox("★メインチーム", main_team_options)
         
@@ -403,12 +389,9 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 team_status[tid] = None
 
     # -------------------------------------
-    # ⏱️ 記録点モード & 🎽 中継点モード
+    # ⏱️ 記録点モード & 🎽 中継点モード (v2.0.0仕様維持)
     # -------------------------------------
     if current_mode in ["⏱️ 記録点モード", "🎽 中継点モード"]:
-        
-        # ▼▼▼ ページ上部タイトル (手動更新ボタンは削除) ▼▼▼
-        # st.markdown(f"<h2 style='text-align:center; margin-bottom:15px;'>{current_mode}</h2>", unsafe_allow_html=True)
         
         if df.empty:
             st.info("レース前")
@@ -448,14 +431,12 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             km_lap = (now - last_time).total_seconds()
             sec_lap = (now - sec_start_time).total_seconds()
             split = (now - start_time).total_seconds()
-            
             rank = len(df[(df['Section'] == section) & (df['Location'] == location)]) + 1
 
             new_row = [
                 tid, teams_info[tid], section, location, get_time_str(now),
                 fmt_lap(km_lap), fmt_lap(sec_lap), fmt_time(split), str(rank), config["RaceName"]
             ]
-            
             gc = get_gspread_client()
             gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_LOG).append_row(new_row)
             st.cache_data.clear()
@@ -467,14 +448,14 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         
         st.write("") 
 
-        # チームボタン一覧
+        # チームボタン一覧 (ご指定の仕様通り)
         for tid in team_ids_ordered:
             status = team_status.get(tid)
             t_name = teams_info.get(tid, tid)
             is_main = (tid == main_team_id)
             btn_type = "primary" if is_main else "secondary"
             
-            # ▼▼▼ 変更点: 全チームをPrimary(赤)として扱う ▼▼▼
+            # 全チームをPrimary(赤)として扱う
             btn_type = "primary"
             
             if status is None:
@@ -489,7 +470,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 st.button(f"🏁 【{tid}】{t_name} (Finish)", disabled=True, key=f"btn_fin_stat_{tid}")
                 continue
 
-            # ▼▼▼ 修正: 直前がRelayなら、現在は「次の区間」を走っているとみなす ▼▼▼
             try: 
                 curr_sec_num = int(curr_sec_str.replace("区", ""))
             except: 
@@ -498,39 +478,30 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             if last_loc == "Relay":
                 curr_sec_num += 1
                 curr_sec_str = f"{curr_sec_num}区"
-            # ▲▲▲ 修正ここまで ▲▲▲
             
             # ボタン生成
-            with st.container(border=True):
-                c_num, c_btn = st.columns([1.2, 4.8])
-                with c_num:
-                    num_color = "#FF4B4B"
-                    st.markdown(f"""
-                        <div style='text-align: center; font-size: 42px; font-weight: 900; color: {num_color}; line-height: 1.2; margin-top: 2px; font-family: Arial, sans-serif;'>{tid}</div>
-                    """, unsafe_allow_html=True)
-                with c_btn:
-                    if current_mode == "⏱️ 記録点モード":
-                        label = f"【No.{tid}】 {t_name}  ▶  {target_km}km"
-                        if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
-                            record_point(tid, curr_sec_str, f"{target_km}km")
-                            st.rerun()
+            if current_mode == "⏱️ 記録点モード":
+                label = f"【No.{tid}】 {t_name}  ▶  {target_km}km"
+                if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
+                    record_point(tid, curr_sec_str, f"{target_km}km")
+                    st.rerun()
 
-                    elif current_mode == "🎽 中継点モード":
-                        is_anchor = (curr_sec_num >= total_sections)
-                        
-                        if is_anchor:
-                            label = f"🏆 【No.{tid}】 {t_name}  ▶  Finish"
-                            if st.button(label, key=f"btn_fin_{tid}", type="primary", use_container_width=True):
-                                record_point(tid, curr_sec_str, "Finish", is_finish=True)
-                                st.rerun()
-                        else:
-                            next_sec = f"{curr_sec_num + 1}区"
-                            label = f"🎽 【No.{tid}】 {t_name}  ▶  Relay ({next_sec})"
-                            if st.button(label, key=f"btn_rel_{tid}", type=btn_type, use_container_width=True):
-                                record_point(tid, curr_sec_str, "Relay")
-                                st.rerun()
+            elif current_mode == "🎽 中継点モード":
+                is_anchor = (curr_sec_num >= total_sections)
+                
+                if is_anchor:
+                    label = f"🏆 【No.{tid}】 {t_name}  ▶  Finish"
+                    if st.button(label, key=f"btn_fin_{tid}", type="primary", use_container_width=True):
+                        record_point(tid, curr_sec_str, "Finish", is_finish=True)
+                        st.rerun()
+                else:
+                    next_sec = f"{curr_sec_num + 1}区"
+                    label = f"🎽 【No.{tid}】 {t_name}  ▶  Relay ({next_sec})"
+                    if st.button(label, key=f"btn_rel_{tid}", type=btn_type, use_container_width=True):
+                        record_point(tid, curr_sec_str, "Relay")
+                        st.rerun()
         
-        # ▼▼▼ 追加: ひとつ戻るボタン (最下部・薄めグレー) ▼▼▼
+        # ひとつ戻るボタン
         st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
         if st.button("↩️ 元に戻す", use_container_width=True, type="secondary"):
             try:
@@ -677,7 +648,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     # 📈 分析モード
     # -------------------------------------
     elif current_mode == "📈 分析モード":
-        # st.markdown(f"<h2 style='text-align:center;'>{current_mode}</h2>", unsafe_allow_html=True)
         if st.button("データ更新"):
             st.cache_data.clear()
             st.rerun()
@@ -717,7 +687,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
 # ⚙️ 管理者モード
 # ==========================================
 elif current_mode == "⚙️ 管理者モード":
-    st.header("⚙️ 管理者メニュー")
+    st.header("⚙️ 管理者モード")
     pwd = st.text_input("パスワード", type="password")
     
     if pwd == ADMIN_PASSWORD:
