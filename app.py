@@ -213,6 +213,7 @@ def show_js_timer(km_sec, sec_sec, split_sec):
         .value {{ 
             font-family: 'Space Mono', monospace;
             font-weight: 700;
+            font-style: italic; /* 斜体にすると速そうに見える */
             font-size: 20px;             /* 少しサイズアップ */           /* 太字 */
             line-height: 1.1; 
             letter-spacing: 1px;         /* 数字の間隔を少し開ける */
