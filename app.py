@@ -107,9 +107,9 @@ def load_data(conn, sheet_name):
     try:
         df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=CACHE_TTL_SEC)
         if not df.empty:
-            # ▼▼▼ 修正: TeamIDも含めて全ての列を文字列型に変換する (マッチング漏れ防止) ▼▼▼
+            # ▼▼▼ 修正: 全列を文字列化し、さらに .0 (浮動小数点のゴミ) を削除する ▼▼▼
             for col in df.columns:
-                df[col] = df[col].astype(str)
+                df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
     except:
         return pd.DataFrame()
@@ -117,11 +117,13 @@ def load_data(conn, sheet_name):
 # --- Config読み込み ---
 def load_config(conn):
     try:
-        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=10)
+        # ▼▼▼ 修正: 設定は頻繁に変わらないのでキャッシュ時間を長くする(10s -> 600s) ▼▼▼
+        # これによりAPI制限による「読み込み失敗→セットアップ画面戻り」を防ぐ
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=600)
         if df.empty: return None
         config = {}
         for _, row in df.iterrows():
-            config[row['Key']] = row['Value']
+            config[str(row['Key'])] = str(row['Value'])
         return config
     except:
         return None
@@ -198,7 +200,7 @@ if current_mode == "🏁 大会セットアップ":
     st.header("🏁 大会プロジェクト作成")
     st.info("新しいレースの設定を行います。")
     
-    # ▼▼▼ 修正: チーム数設定をフォームの外に出す (変更即反映のため) ▼▼▼
+    # チーム数設定をフォームの外に出す
     team_count = st.number_input("参加チーム数", min_value=1, max_value=20, value=3)
     
     with st.form("setup_form"):
@@ -212,7 +214,6 @@ if current_mode == "🏁 大会セットアップ":
         cols = st.columns(2)
         main_team_options = []
         
-        # 外で指定した team_count に基づいてループ
         for i in range(1, team_count + 1):
             with cols[(i-1)%2]:
                 tid = st.text_input(f"チーム{i} ID", value=str(i), key=f"tid_{i}")
@@ -250,6 +251,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             teams_info[tid] = v
             team_ids_ordered.append(tid)
     
+    # メインチームを先頭に
     if main_team_id in team_ids_ordered:
         team_ids_ordered.remove(main_team_id)
         team_ids_ordered.insert(0, main_team_id)
@@ -257,7 +259,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
     team_status = {}
     if not df.empty:
         for tid in team_ids_ordered:
-            # load_dataの修正により、tid(str) と df['TeamID'](str) が正しく一致する
+            # 型変換済みなので確実にマッチするはず
             t_df = df[df['TeamID'] == tid]
             if not t_df.empty:
                 team_status[tid] = t_df.iloc[-1]
@@ -330,13 +332,20 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             with c_input:
                 target_km = st.number_input("記録する距離 (km)", min_value=1, max_value=50, value=1)
 
+        # チームごとにパネル表示
         for tid in team_ids_ordered:
             status = team_status.get(tid)
-            if status is None: continue
-
+            
+            # データ不整合でもボタンだけは表示して復帰させるための処置
             t_name = teams_info.get(tid, tid)
             is_main = (tid == main_team_id)
             
+            if status is None:
+                # データが見つからない場合（エラー表示しつつスキップしない）
+                with st.container(border=True):
+                    st.warning(f"⚠️ {t_name}: データ取得エラー")
+                continue
+
             last_loc = str(status['Location'])
             curr_sec_str = str(status['Section'])
             try: curr_sec_num = int(curr_sec_str.replace("区", ""))
