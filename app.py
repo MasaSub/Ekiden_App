@@ -182,22 +182,23 @@ def render_analysis_dashboard(df, teams_info):
     with tab2:
         cols = st.columns(2)
         tl = list(teams_info.values())
-        with cols[0]: ta = st.selectbox("チームA", tl, 0, key=f"ta_{len(df)}")
-        with cols[1]: tb = st.selectbox("チームB", tl, 1 if len(tl)>1 else 0, key=f"tb_{len(df)}")
-        
-        if ta and tb:
-            tid_a = [k for k, v in teams_info.items() if v == ta][0]
-            tid_b = [k for k, v in teams_info.items() if v == tb][0]
-            da, db = ana_df[ana_df['TeamID']==tid_a].set_index('PointLabel'), ana_df[ana_df['TeamID']==tid_b].set_index('PointLabel')
-            cp = da.index.intersection(db.index)
-            if not cp.empty:
-                rr = []
-                for pt in cp:
-                    ra, rb = da.loc[pt], db.loc[pt]
-                    ds = ra['SplitSeconds'] - rb['SplitSeconds']
-                    rr.append({"地点":pt, f"{ta}順":f"{ra['Rank']}", f"{tb}順":f"{rb['Rank']}", 
-                               "差":fmt_time(abs(ds)), f"{ta} 1km":ra['KMLapStr'], f"{tb} 1km":rb['KMLapStr']})
-                st.dataframe(pd.DataFrame(rr), use_container_width=True, hide_index=True)
+        if tl:
+            with cols[0]: ta = st.selectbox("チームA", tl, 0, key=f"ta_{len(df)}")
+            with cols[1]: tb = st.selectbox("チームB", tl, 1 if len(tl)>1 else 0, key=f"tb_{len(df)}")
+            
+            if ta and tb:
+                tid_a = [k for k, v in teams_info.items() if v == ta][0]
+                tid_b = [k for k, v in teams_info.items() if v == tb][0]
+                da, db = ana_df[ana_df['TeamID']==tid_a].set_index('PointLabel'), ana_df[ana_df['TeamID']==tid_b].set_index('PointLabel')
+                cp = da.index.intersection(db.index)
+                if not cp.empty:
+                    rr = []
+                    for pt in cp:
+                        ra, rb = da.loc[pt], db.loc[pt]
+                        ds = ra['SplitSeconds'] - rb['SplitSeconds']
+                        rr.append({"地点":pt, f"{ta}順":f"{ra['Rank']}", f"{tb}順":f"{rb['Rank']}", 
+                                "差":fmt_time(abs(ds)), f"{ta} 1km":ra['KMLapStr'], f"{tb} 1km":rb['KMLapStr']})
+                    st.dataframe(pd.DataFrame(rr), use_container_width=True, hide_index=True)
 
     with tab3:
         popts = ana_df['PointLabel'].unique()
@@ -336,7 +337,10 @@ if st.session_state["race_config"] is None:
 
 config = st.session_state["race_config"]
 if "app_mode" not in st.session_state: st.session_state["app_mode"] = "🏁 レース作成"
-if config is None or "RaceName" not in config: st.session_state["app_mode"] = "🏁 レース作成"
+
+# 修正ポイント: Configがなくても「過去レース」「管理者」はアクセス可能にする
+if (config is None or "RaceName" not in config) and st.session_state["app_mode"] not in ["📂 過去のレース", "⚙️ 管理者モード"]:
+    st.session_state["app_mode"] = "🏁 レース作成"
 
 df_for_check = load_data(conn, WORKSHEET_LOG)
 is_race_started = not df_for_check.empty
@@ -372,6 +376,7 @@ def change_mode(m):
 
 for m in menu_options:
     disabled = False
+    # 修正ポイント: 過去レース閲覧はConfig依存から除外
     if (config is None) and (m not in ["🏁 レース作成", "⚙️ 管理者モード", "📂 過去のレース"]):
         disabled = True
     
@@ -449,10 +454,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
 
     # ⏱️ 記録点 & 🎽 中継点
     if current_mode in ["⏱️ 記録点モード", "🎽 中継点モード"]:
-        if finish_count > 0 and finish_count == len(teams_info):
-            st.toast("全チームがフィニッシュしました！")
-            st.session_state["app_mode"] = "🏆 最終結果"
-            st.rerun()
         if df.empty:
             st.info("レース前")
             if st.button("🔫 スタート", type="primary", use_container_width=True):
@@ -526,10 +527,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         st.rerun()
         
         st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
-        if current_mode == "🎽 中継点モード":
-            if st.button("🔴 レースを終了して結果発表へ", use_container_width=True):
-                st.session_state["app_mode"] = "🏆 最終結果"
-                st.rerun()
+        # 修正: 自動遷移削除のため、手動ボタンもここには配置しない（管理者に集約）
         if st.button("↩️ 元に戻す", use_container_width=True, type="secondary"):
             try:
                 gc = get_gspread_client()
@@ -648,7 +646,6 @@ elif current_mode == "📂 過去のレース":
     if idx_df.empty:
         st.info("アーカイブされたレースはありません")
     else:
-        # 逆順にして新しいものを上に
         idx_df = idx_df.sort_values(by="Date", ascending=False)
         race_options = {row['RaceID']: f"{row['Date']} - {row['RaceName']}" for _, row in idx_df.iterrows()}
         selected_rid = st.selectbox("閲覧するレースを選択", list(race_options.keys()), format_func=lambda x: race_options[x])
@@ -658,14 +655,12 @@ elif current_mode == "📂 過去のレース":
             log_sheet = target_row['LogSheet']
             conf_sheet = target_row['ConfigSheet']
             
-            # データロード
             old_df = load_data(conn, log_sheet)
             old_conf = fetch_config_from_sheet(conn, conf_sheet)
             
             if old_df.empty or not old_conf:
                 st.error("データの読み込みに失敗しました")
             else:
-                # チーム情報の復元
                 old_teams = {}
                 for k, v in old_conf.items():
                     if k.startswith("TeamName_"):
@@ -674,7 +669,6 @@ elif current_mode == "📂 過去のレース":
                 st.divider()
                 st.subheader(f"Archive: {target_row['RaceName']}")
                 
-                # モード切り替えタブ
                 v_tab1, v_tab2 = st.tabs(["📊 分析ビュー", "🏆 結果リスト"])
                 with v_tab1: render_analysis_dashboard(old_df, old_teams)
                 with v_tab2: render_result_list(old_df)
@@ -698,8 +692,6 @@ elif current_mode == "⚙️ 管理者モード":
             try:
                 gc = get_gspread_client()
                 sh = gc.open_by_url(SHEET_URL)
-                
-                # インデックス更新
                 try: ws_idx = sh.worksheet(WORKSHEET_INDEX)
                 except: ws_idx = sh.add_worksheet(WORKSHEET_INDEX, 100, 10)
                 
@@ -708,16 +700,13 @@ elif current_mode == "⚙️ 管理者モード":
                 log_name = f"log_{ts}"
                 conf_name = f"conf_{ts}"
                 
-                # シート複製
                 ws_log = sh.worksheet(WORKSHEET_LOG)
                 ws_conf = sh.worksheet(WORKSHEET_CONFIG)
                 ws_log.duplicate(new_sheet_name=log_name)
                 ws_conf.duplicate(new_sheet_name=conf_name)
                 
-                # インデックス追加
                 ws_idx.append_row([race_id, config.get("RaceName", "Unknown"), datetime.now(JST).strftime('%Y-%m-%d %H:%M'), log_name, conf_name, ""])
                 
-                # 現行シートクリア
                 ws_log.clear(); ws_log.append_row(["TeamID", "TeamName", "Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Rank", "Race"])
                 ws_conf.clear(); ws_conf.append_row(["Key", "Value"])
                 
@@ -726,7 +715,6 @@ elif current_mode == "⚙️ 管理者モード":
                 st.session_state["app_mode"] = "🏁 レース作成"
                 st.success(f"アーカイブ完了！: {race_id}")
                 st.rerun()
-                
             except Exception as e: st.error(f"アーカイブエラー: {e}")
 
         st.divider()
