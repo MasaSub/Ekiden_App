@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from streamlit_gsheets import GSheetsConnection
 from streamlit_autorefresh import st_autorefresh
-import streamlit.components.v1 as components
 
 # ==========================================
 # 設定・定数
@@ -30,35 +29,53 @@ ADMIN_PASSWORD = "0000"
 st.set_page_config(page_title="えきでんくん", page_icon="🎽", layout="wide")
 
 # ==========================================
-# CSSデザイン定義
+# CSSデザイン定義 (ボタンの視認性向上)
 # ==========================================
 st.markdown("""
     <style>
     .stApp { overflow-x: hidden; }
-    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
+    .block-container { padding-top: 1rem; padding-bottom: 5rem; }
     
     section[data-testid="stSidebar"] { background-color: #262730; color: white; }
     
+    /* ボタン共通: 大きく、押しやすく */
     div.stButton > button {
-        height: 3em; font-size: 16px; font-weight: bold; border-radius: 8px; width: 100%;
-    }
-    div.stButton > button[kind="primary"] {
-        background-color: #FF4B4B; color: white; height: 3.5em; font-size: 20px;
-    }
-    .main-team-box {
-        border: 2px solid #FF4B4B; padding: 10px; border-radius: 10px; background-color: #2b1e1e;
+        height: 3.5em; 
+        font-size: 18px !important; 
+        font-weight: bold !important; 
+        border-radius: 12px; 
+        width: 100%;
+        margin-bottom: 0px;
     }
     
-    div[data-testid="stNumberInput"] input { font-size: 1.2rem; font-weight: bold; height: 3rem; }
-    div[data-testid="stNumberInput"] button { height: 3rem; width: 3rem; }
+    /* Primaryボタン(赤: メインチームなど) */
+    div.stButton > button[kind="primary"] {
+        background-color: #FF4B4B; 
+        color: white; 
+        border: 2px solid #ff9999;
+    }
+    
+    /* Secondaryボタン(白: 他チーム) */
+    div.stButton > button[kind="secondary"] {
+        background-color: #f0f2f6; 
+        color: #31333F;
+        border: 1px solid #d0d2d6;
+    }
 
-    h3 { margin: 0; padding: 0; font-size: 1.2rem; }
+    /* 数値入力 */
+    div[data-testid="stNumberInput"] input { font-size: 1.4rem; font-weight: bold; height: 3.5rem; text-align: center; }
+    div[data-testid="stNumberInput"] button { height: 3.5rem; width: 3.5rem; }
+
+    /* 見出し調整 */
+    h1, h2, h3 { margin: 0; padding: 0; }
     </style>
     """, unsafe_allow_html=True)
 
 # タイトル
 st.markdown(f"""
-    <h2 style='text-align: center; margin: 0;'>🎽 えきでんくん <span style='font-size: 0.6em; color: #888;'>{VERSION}</span></h2>
+    <h3 style='text-align: center; margin-bottom: 10px;'>
+        🎽 えきでんくん <span style='font-size: 0.6em; color: #888;'>{VERSION}</span>
+    </h3>
 """, unsafe_allow_html=True)
 
 # ==========================================
@@ -110,7 +127,7 @@ def load_data(conn, sheet_name):
 # Config読み込み（APIアクセス）
 def fetch_config_from_sheet(conn):
     try:
-        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=0) # ttl=0で即時取得
+        df = conn.read(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, ttl=0)
         if df.empty: return None
         config = {}
         for _, row in df.iterrows():
@@ -146,7 +163,6 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
     ws_conf.append_rows(config_data)
     st.cache_data.clear()
     
-    # ▼▼▼ 修正: 保存した設定を即座にメモリにも反映 ▼▼▼
     new_config = {}
     for item in config_data:
         new_config[item[0]] = item[1]
@@ -157,11 +173,10 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# ▼▼▼ 修正: Configをメモリ(session_state)に保持し、勝手なリロードを防ぐ ▼▼▼
+# Configをメモリ保持
 if "race_config" not in st.session_state:
     st.session_state["race_config"] = None
 
-# メモリになければ取得を試みる
 if st.session_state["race_config"] is None:
     loaded_conf = fetch_config_from_sheet(conn)
     if loaded_conf:
@@ -193,7 +208,6 @@ def change_mode(m):
 
 for m in menu_options:
     disabled = False
-    # Config未ロード時はセットアップと管理者以外無効化
     if (config is None) and (m not in ["🏁 大会セットアップ", "⚙️ 管理者モード"]):
         disabled = True
     
@@ -207,7 +221,6 @@ current_mode = st.session_state["app_mode"]
 # ==========================================
 if current_mode == "🏁 大会セットアップ":
     st.header("🏁 大会プロジェクト作成")
-    st.info("新しいレースの設定を行います。")
     
     team_count = st.number_input("参加チーム数", min_value=1, max_value=20, value=3)
     
@@ -216,7 +229,7 @@ if current_mode == "🏁 大会セットアップ":
         section_count = st.number_input("全区間数", min_value=1, value=5)
         
         st.divider()
-        st.write("チーム設定 (ID: ゼッケン番号などを想定)")
+        st.write("チーム設定")
         
         teams_input = {}
         cols = st.columns(2)
@@ -242,13 +255,14 @@ if current_mode == "🏁 大会セットアップ":
 # 共通ロジック & 各種モード
 # ==========================================
 elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観戦モード", "📊 分析モード"]:
-    # Configチェック
     if not config:
-        st.error("設定が読み込めません。再度セットアップを行ってください。")
+        st.error("設定が読み込めません。")
         st.stop()
 
+    # データ読み込み
     df = load_data(conn, WORKSHEET_LOG)
     
+    # チーム情報整理
     teams_info = {}
     team_ids_ordered = []
     main_team_id = config.get("MainTeamID", "1")
@@ -274,17 +288,23 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 team_status[tid] = None
 
     # -------------------------------------
-    # ⏱️ 計測(距離) & 🎽 計測(中継)
+    # ⏱️ 計測(距離) & 🎽 計測(中継) [安定化版]
     # -------------------------------------
     if current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)"]:
-        st.write(f"### {current_mode}")
         
-        auto_reload = st.sidebar.toggle("🔄 自動更新", value=True)
-        if auto_reload:
-            st_autorefresh(interval=2000, key="measure_refresh")
+        # 手動更新ボタン (最上部)
+        col_ref, col_title = st.columns([1, 4])
+        with col_ref:
+            if st.button("🔄 最新化"):
+                st.cache_data.clear()
+                st.rerun()
+        with col_title:
+            st.write(f"**{current_mode}**")
+        
+        # ※ st_autorefresh は削除済み（安定化のため）
 
         if df.empty:
-            st.info("レースはまだ始まっていません。")
+            st.info("データがありません")
             if st.button("🔫 全チーム一斉スタート", type="primary"):
                 now = datetime.now(JST)
                 start_rows = []
@@ -299,6 +319,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 st.rerun()
             st.stop()
 
+        # 記録関数
         def record_point(tid, section, location, is_finish=False):
             now = datetime.now(JST)
             t_df = df[df['TeamID'] == tid]
@@ -306,12 +327,11 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             last = t_df.iloc[-1]
             last_time = parse_time_str(last['Time'])
             
-            # Start時刻取得 (チームごとのStartを探す)
             try:
                 start_row = t_df[t_df['Location'] == 'Start'].iloc[0]
                 start_time = parse_time_str(start_row['Time'])
             except:
-                start_time = now # データ不整合時の保険
+                start_time = now
 
             sec_start_time = start_time
             if section != "1区":
@@ -335,70 +355,66 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
             st.cache_data.clear()
             st.toast(f"{teams_info[tid]}: {location} 記録完了")
 
+        # 距離入力 (計測モードのみ)
         target_km = 1
         if current_mode == "⏱️ 計測(距離)":
-            c_input, _ = st.columns([2, 1])
-            with c_input:
-                target_km = st.number_input("記録する距離 (km)", min_value=1, max_value=50, value=1)
+            # 入力を中央揃えで大きく
+            target_km = st.number_input("記録する距離 (km)", min_value=1, max_value=50, value=1)
+        
+        st.write("") # スペース
 
-        # チームパネル表示
+        # チームボタン一覧 (超コンパクト)
         for tid in team_ids_ordered:
             status = team_status.get(tid)
             t_name = teams_info.get(tid, tid)
             is_main = (tid == main_team_id)
+            btn_type = "primary" if is_main else "secondary"
             
+            # データなし or Finish済みの場合
             if status is None:
-                with st.container(border=True):
-                    st.warning(f"⚠️ {t_name}: データ取得待ち")
+                st.button(f"{t_name} (データなし)", disabled=True, key=f"btn_none_{tid}")
                 continue
-
+            
             last_loc = str(status['Location'])
             curr_sec_str = str(status['Section'])
-            try: curr_sec_num = int(curr_sec_str.replace("区", ""))
-            except: curr_sec_num = 1
             
             if last_loc == "Finish":
-                with st.container(border=True):
-                    st.markdown(f"### 🏁 {t_name} <small>(Finish)</small>", unsafe_allow_html=True)
-                    st.write(f"Time: {status['Split']}")
+                st.button(f"🏁 {t_name} (Finish)", disabled=True, key=f"btn_fin_stat_{tid}")
                 continue
+            
+            # ボタンの生成
+            if current_mode == "⏱️ 計測(距離)":
+                # ボタンラベル: "チーム名 (現在:1区 Start -> 記録:1km)" のようにわかるようにする
+                # シンプルに "チーム名 (1kmを記録)" とする
+                label = f"{t_name} ({target_km}km を記録)"
+                if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
+                    record_point(tid, curr_sec_str, f"{target_km}km")
+                    st.rerun()
 
-            # パネル描画
-            with st.container(border=True):
-                col_head, col_info = st.columns([1, 2])
-                with col_head:
-                    prefix = "★" if is_main else ""
-                    st.markdown(f"#### {prefix}{t_name}")
-                    st.caption(f"{curr_sec_str} | {last_loc} 通過")
-                with col_info:
-                     st.markdown(f"**Split:** `{status['Split']}` / **Lap:** `{status['KM-Lap']}`")
-
-                # ボタン
-                if current_mode == "⏱️ 計測(距離)":
-                    btn_label = f"⏱️ {target_km}km を記録"
-                    if st.button(btn_label, key=f"btn_dist_{tid}", type="primary" if is_main else "secondary"):
-                        record_point(tid, curr_sec_str, f"{target_km}km")
+            elif current_mode == "🎽 計測(中継)":
+                try: curr_sec_num = int(curr_sec_str.replace("区", ""))
+                except: curr_sec_num = 1
+                is_anchor = (curr_sec_num >= total_sections)
+                
+                if is_anchor:
+                    label = f"🏆 {t_name} (Finish)"
+                    if st.button(label, key=f"btn_fin_{tid}", type="primary", use_container_width=True):
+                        record_point(tid, curr_sec_str, "Finish", is_finish=True)
+                        st.rerun()
+                else:
+                    next_sec = f"{curr_sec_num + 1}区"
+                    label = f"🎽 {t_name} (Relay: {next_sec}へ)"
+                    if st.button(label, key=f"btn_rel_{tid}", type=btn_type, use_container_width=True):
+                        record_point(tid, curr_sec_str, "Relay")
                         st.rerun()
 
-                elif current_mode == "🎽 計測(中継)":
-                    is_anchor = (curr_sec_num >= total_sections)
-                    
-                    if is_anchor:
-                        if st.button("🏆 Finish (ゴール)", key=f"btn_fin_{tid}", type="primary"):
-                             record_point(tid, curr_sec_str, "Finish", is_finish=True)
-                             st.rerun()
-                    else:
-                         next_sec = f"{curr_sec_num + 1}区"
-                         if st.button(f"🎽 Relay ({next_sec}へ)", key=f"btn_rel_{tid}", type="primary" if is_main else "secondary"):
-                             record_point(tid, curr_sec_str, "Relay")
-                             st.rerun()
-
     # -------------------------------------
-    # 📣 観戦モード
+    # 📣 観戦モード (自動更新あり)
     # -------------------------------------
     elif current_mode == "📣 観戦モード":
         st.sidebar.markdown("---")
         watch_tid = st.sidebar.selectbox("表示チームを選択", team_ids_ordered, format_func=lambda x: teams_info.get(x, x))
+        
         st_autorefresh(interval=5000, key="watch_refresh")
         
         t_df = df[df['TeamID'] == watch_tid]
@@ -479,6 +495,7 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
         
         if graph_data:
             g_df = pd.DataFrame(graph_data)
+            import altair as alt
             chart = alt.Chart(g_df).mark_line(point=True).encode(
                 x=alt.X('Point', sort=None, title='通過地点'),
                 y=alt.Y('Rank', scale=alt.Scale(reverse=True), title='順位'),
@@ -499,7 +516,6 @@ elif current_mode == "⚙️ 管理者モード":
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
         
-        st.write("### ⚙️ 設定再読み込み")
         if st.button("設定データを強制リロード"):
             st.session_state["race_config"] = None
             st.cache_data.clear()
