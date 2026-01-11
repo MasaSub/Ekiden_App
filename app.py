@@ -177,12 +177,20 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
         new_config[item[0]] = item[1]
     st.session_state["race_config"] = new_config
 
-# ▼▼▼ JavaScriptタイマー表示関数 (v2.0.1で追加) ▼▼▼
+# ▼▼▼ JavaScriptタイマー表示関数 (ラベル日本語化対応版) ▼▼▼
 def show_js_timer(km_sec, sec_sec, split_sec):
+    """
+    JSを使用してクライアントサイドでカウントアップタイマーを表示
+    km_sec: キロラップ計測開始からの経過秒数
+    sec_sec: 区間ラップ計測開始からの経過秒数
+    split_sec: スタートからの経過秒数
+    """
     km_ms = int(km_sec * 1000)
     sec_ms = int(sec_sec * 1000)
     split_ms = int(split_sec * 1000)
     
+    # ラベルとカラー設定
+    # 前回の要望: LastLap->キロラップ, Section->区間ラップ, Total->スタートから
     html_code = f"""
     <!DOCTYPE html>
     <html>
@@ -196,34 +204,35 @@ def show_js_timer(km_sec, sec_sec, split_sec):
             box-sizing: border-box; width: 100%; margin-bottom: 5px;
         }}
         .timer-box {{ text-align: center; flex: 1; }}
-        .label {{ font-size: 10px; color: #aaa; margin-bottom: 2px; }}
+        .label {{ font-size: 11px; color: #ccc; margin-bottom: 4px; letter-spacing: 0.5px; }}
         .value {{ font-size: 20px; font-weight: bold; line-height: 1.1; font-family: monospace; }}
         .separator {{ width: 1px; height: 35px; background-color: #555; }}
         .decimal {{ font-size: 0.6em; opacity: 0.7; }}
-        .color-km {{ color: #4bd6ff; }}
-        .color-sec {{ color: #ff4b4b; }}
-        .color-total {{ color: #ffffff; }}
+        .color-km {{ color: #4bd6ff; }}    /* 水色 */
+        .color-sec {{ color: #ff4b4b; }}   /* 赤色 */
+        .color-total {{ color: #ffffff; }} /* 白色 */
     </style>
     </head>
     <body>
     <div class="timer-container">
         <div class="timer-box">
-            <div class="label">Last Lap</div>
+            <div class="label">キロラップ</div> 
             <div id="km-val" class="value color-km">--:--.--</div>
         </div>
         <div class="separator"></div>
         <div class="timer-box">
-            <div class="label">Section</div>
+            <div class="label">区間ラップ</div>
             <div id="sec-val" class="value color-sec">--:--.--</div>
         </div>
         <div class="separator"></div>
         <div class="timer-box">
-            <div class="label">Total</div>
+            <div class="label">スタートから</div>
             <div id="split-val" class="value color-total">--:--:--</div>
         </div>
     </div>
     <script>
         const now = Date.now();
+        // サーバーサイドで計算した経過時間をJSの開始基準点に変換
         const startKm = now - {km_ms};
         const startSec = now - {sec_ms};
         const startSplit = now - {split_ms};
@@ -236,17 +245,27 @@ def show_js_timer(km_sec, sec_sec, split_sec):
             const m = Math.floor((totalSec % 3600) / 60);
             const s = totalSec % 60;
             const dec = Math.floor((ms % 1000) / 100); 
+            
             const mStr = String(m).padStart(2,'0');
             const sStr = String(s).padStart(2,'0');
-            if (isSplit) {{ return `${{h}}:${{mStr}}:${{sStr}}`; }} 
-            else {{ return `${{mStr}}:${{sStr}}<span class="decimal">.${{dec}}</span>`; }}
+            
+            if (isSplit) {{ 
+                // スプリットは 時間:分:秒
+                return `${{h}}:${{mStr}}:${{sStr}}`; 
+            }} else {{ 
+                // ラップは 分:秒.小数
+                return `${{mStr}}:${{sStr}}<span class="decimal">.${{dec}}</span>`; 
+            }}
         }}
+
         function update() {{
             const cur = Date.now();
             document.getElementById("km-val").innerHTML = fmt(cur - startKm, false);
             document.getElementById("sec-val").innerHTML = fmt(cur - startSec, false);
             document.getElementById("split-val").innerHTML = fmt(cur - startSplit, true);
         }}
+
+        // 100msごとに更新 (負荷軽減のため少し間隔を空けるが、見た目は十分スムーズ)
         setInterval(update, 100);
         update();
     </script>
