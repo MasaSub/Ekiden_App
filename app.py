@@ -1,5 +1,5 @@
 # ==========================================
-# version = 2.0.6 date = 2026/01/09
+# version = 2.0.0 date = 2026/01/09
 # ==========================================
 
 import streamlit as st
@@ -16,7 +16,7 @@ from streamlit_autorefresh import st_autorefresh
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 2.0.6"
+VERSION = "ver 2.0.0"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_LOG = "latest-log"
@@ -29,30 +29,40 @@ ADMIN_PASSWORD = "0000"
 st.set_page_config(page_title="えきでんくん", page_icon="🎽", layout="wide")
 
 # ==========================================
-# CSSデザイン定義
+# CSSデザイン定義 (超コンパクト版)
 # ==========================================
 st.markdown("""
     <style>
     .stApp { overflow-x: hidden; }
-    .block-container { padding-top: 1rem; padding-bottom: 5rem; }
+    
+    /* 全体の余白を詰める */
+    .block-container { padding-top: 0.5rem; padding-bottom: 2rem; padding-left: 0.5rem; padding-right: 0.5rem; }
     
     section[data-testid="stSidebar"] { background-color: #262730; color: white; }
     
-    /* ボタン共通 */
+    /* ボタンのスタイル調整 */
     div.stButton > button {
-        height: 3.8em; /* 少し高さを増やす */
+        height: auto !important;     /* 高さは文字数に合わせて自動 */
+        min-height: 3.2em;           /* 最低限の高さ */
+        padding: 0.2em 0.5em;        /* 内側の余白を減らす */
         font-size: 18px !important; 
         font-weight: bold !important; 
-        border-radius: 12px; 
+        border-radius: 8px; 
         width: 100%;
-        margin-bottom: 0px;
+        margin-bottom: 0px !important; /* ボタン下の余白を削除 */
+        line-height: 1.2 !important;
     }
     
+    /* ボタンの親要素の余白も詰める */
+    div.row-widget.stButton {
+        margin-bottom: 0.3rem; /* ボタン同士の間隔 */
+    }
+
     /* Primaryボタン(赤) */
     div.stButton > button[kind="primary"] {
         background-color: #FF4B4B; 
         color: white; 
-        border: 1px solid #555;
+        border: 2px solid #ff9999;
     }
     
     /* Secondaryボタン(ダーク) */
@@ -66,21 +76,21 @@ st.markdown("""
         border-color: #888;
         color: white;
     }
-
+    
     /* 数値入力 */
-    div[data-testid="stNumberInput"] input { font-size: 1.4rem; font-weight: bold; height: 3.5rem; text-align: center; }
-    div[data-testid="stNumberInput"] button { height: 3.5rem; width: 3.5rem; }
+    div[data-testid="stNumberInput"] input { font-size: 1.4rem; font-weight: bold; height: 3.0rem; text-align: center; }
+    div[data-testid="stNumberInput"] button { height: 3.0rem; width: 3.0rem; }
 
     /* 見出し調整 */
     h1, h2, h3 { margin: 0; padding: 0; }
     </style>
     """, unsafe_allow_html=True)
 
-# タイトル
+# タイトル (小さく表示)
 st.markdown(f"""
-    <h3 style='text-align: center; margin-bottom: 10px;'>
-        🎽 えきでんくん <span style='font-size: 0.6em; color: #888;'>{VERSION}</span>
-    </h3>
+    <div style='text-align: center; margin-bottom: 5px; font-size: 14px; color: #888;'>
+        🎽 えきでんくん {VERSION}
+    </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
@@ -194,7 +204,6 @@ if "app_mode" not in st.session_state:
 if config is None or "RaceName" not in config:
     st.session_state["app_mode"] = "🏁 大会セットアップ"
 
-# レース開始チェック
 df_for_check = load_data(conn, WORKSHEET_LOG)
 is_race_started = not df_for_check.empty
 
@@ -298,17 +307,18 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
                 team_status[tid] = None
 
     # -------------------------------------
-    # ⏱️ 計測(距離) & 🎽 計測(中継)
+    # ⏱️ 計測(距離) & 🎽 計測(中継) [超コンパクト版]
     # -------------------------------------
     if current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)"]:
         
+        # 手動更新ボタン
         col_ref, col_title = st.columns([1, 4])
         with col_ref:
-            if st.button("🔄 最新化"):
+            if st.button("🔄"): # ボタン名を短く
                 st.cache_data.clear()
                 st.rerun()
         with col_title:
-            st.markdown(f"<h2 style='margin-top:5px;'>{current_mode}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h3 style='margin-top:5px;'>{current_mode}</h3>", unsafe_allow_html=True)
         
         if df.empty:
             st.info("データがありません")
@@ -367,70 +377,49 @@ elif current_mode in ["⏱️ 計測(距離)", "🎽 計測(中継)", "📣 観�
         
         st.write("") 
 
-        # ▼▼▼ 修正: ゼッケン番号(ID)を左側に大きく表示するレイアウト ▼▼▼
+        # チームボタン一覧 (リスト形式で直列配置)
         for tid in team_ids_ordered:
             status = team_status.get(tid)
             t_name = teams_info.get(tid, tid)
             is_main = (tid == main_team_id)
             btn_type = "primary" if is_main else "secondary"
             
-            # コンテナで囲む（枠線あり）
-            with st.container(border=True):
-                # レイアウト分割: [No(1.2)] [ボタン(4.8)]
-                c_num, c_btn = st.columns([1.2, 4.8])
-                
-                # --- 左側: チームNo(ID) ---
-                with c_num:
-                    # メインチームは赤、他は白っぽいグレーで大きく表示
-                    num_color = "#FF4B4B" if is_main else "#e0e0e0"
-                    st.markdown(f"""
-                        <div style='
-                            text-align: center; 
-                            font-size: 42px; 
-                            font-weight: 900; 
-                            color: {num_color}; 
-                            line-height: 1.2; 
-                            margin-top: 2px;
-                            font-family: Arial, sans-serif;
-                        '>{tid}</div>
-                    """, unsafe_allow_html=True)
-                
-                # --- 右側: 操作ボタン ---
-                with c_btn:
-                    if status is None:
-                        st.button(f"{t_name} (データなし)", disabled=True, key=f"btn_none_{tid}")
-                        continue
-                    
-                    last_loc = str(status['Location'])
-                    curr_sec_str = str(status['Section'])
-                    
-                    if last_loc == "Finish":
-                        st.button(f"🏁 {t_name} (Finish)", disabled=True, key=f"btn_fin_stat_{tid}")
-                        continue
-                    
-                    # ボタン生成
-                    if current_mode == "⏱️ 計測(距離)":
-                        label = f"{t_name} ({target_km}km を記録)"
-                        if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
-                            record_point(tid, curr_sec_str, f"{target_km}km")
-                            st.rerun()
+            if status is None:
+                st.button(f"【{tid}】{t_name} (No Data)", disabled=True, key=f"btn_none_{tid}")
+                continue
+            
+            last_loc = str(status['Location'])
+            curr_sec_str = str(status['Section'])
+            
+            # Finish済みは目立たないようにする
+            if last_loc == "Finish":
+                st.button(f"🏁 【{tid}】{t_name} (Finish)", disabled=True, key=f"btn_fin_stat_{tid}")
+                continue
+            
+            # ボタン生成 (カラムを使わず1行にまとめる)
+            if current_mode == "⏱️ 計測(距離)":
+                # ラベル: 【No.1】 チーム名 ▶ 5km
+                label = f"【No.{tid}】 {t_name}  ▶  {target_km}km"
+                if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
+                    record_point(tid, curr_sec_str, f"{target_km}km")
+                    st.rerun()
 
-                    elif current_mode == "🎽 計測(中継)":
-                        try: curr_sec_num = int(curr_sec_str.replace("区", ""))
-                        except: curr_sec_num = 1
-                        is_anchor = (curr_sec_num >= total_sections)
-                        
-                        if is_anchor:
-                            label = f"🏆 {t_name} (Finish)"
-                            if st.button(label, key=f"btn_fin_{tid}", type="primary", use_container_width=True):
-                                record_point(tid, curr_sec_str, "Finish", is_finish=True)
-                                st.rerun()
-                        else:
-                            next_sec = f"{curr_sec_num + 1}区"
-                            label = f"🎽 {t_name} (Relay: {next_sec}へ)"
-                            if st.button(label, key=f"btn_rel_{tid}", type=btn_type, use_container_width=True):
-                                record_point(tid, curr_sec_str, "Relay")
-                                st.rerun()
+            elif current_mode == "🎽 計測(中継)":
+                try: curr_sec_num = int(curr_sec_str.replace("区", ""))
+                except: curr_sec_num = 1
+                is_anchor = (curr_sec_num >= total_sections)
+                
+                if is_anchor:
+                    label = f"🏆 【No.{tid}】 {t_name}  ▶  Finish"
+                    if st.button(label, key=f"btn_fin_{tid}", type="primary", use_container_width=True):
+                        record_point(tid, curr_sec_str, "Finish", is_finish=True)
+                        st.rerun()
+                else:
+                    next_sec = f"{curr_sec_num + 1}区"
+                    label = f"🎽 【No.{tid}】 {t_name}  ▶  Relay ({next_sec})"
+                    if st.button(label, key=f"btn_rel_{tid}", type=btn_type, use_container_width=True):
+                        record_point(tid, curr_sec_str, "Relay")
+                        st.rerun()
 
     # -------------------------------------
     # 📣 観戦モード
