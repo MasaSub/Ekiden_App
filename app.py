@@ -131,7 +131,8 @@ def load_data(conn, sheet_name):
             for col in df.columns:
                 df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
         return df
-    except:
+    except Exception:
+        # 読み込み失敗時は空のDataFrameを返す（画面真っ白回避）
         return pd.DataFrame()
 
 # Config読み込み
@@ -574,8 +575,13 @@ elif current_mode == "⚙️ 管理者モード":
         if st.button("🗑️ 現在のレースデータを全消去 (セットアップに戻る)"):
             gc = get_gspread_client()
             sh = gc.open_by_url(SHEET_URL)
-            try: sh.worksheet(WORKSHEET_LOG).clear()
+            try: 
+                ws_log = sh.worksheet(WORKSHEET_LOG)
+                ws_log.clear()
+                # 削除直後にヘッダーを書き込む
+                ws_log.append_row(["TeamID", "TeamName", "Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Rank", "Race"])
             except: pass
+            
             try: sh.worksheet(WORKSHEET_CONFIG).clear()
             except: pass
             
@@ -593,3 +599,8 @@ elif current_mode == "⚙️ 管理者モード":
                 conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_LOG, data=edited)
                 st.cache_data.clear()
                 st.toast("保存しました")
+
+# ▼▼▼ 迷子防止（どのモードにも当てはまらない場合） ▼▼▼
+else:
+    st.session_state["app_mode"] = "🏁 大会セットアップ"
+    st.rerun()
