@@ -441,12 +441,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     # -------------------------------------
     if current_mode in ["⏱️ 記録点モード", "🎽 中継点モード"]:
         
-        # 修正: 全チーム完走なら自動遷移
-        if finish_count > 0 and finish_count == len(teams_info):
-            st.toast("全チームがフィニッシュしました！")
-            st.session_state["app_mode"] = "🏆 最終結果"
-            st.rerun()
-
         if df.empty:
             st.info("レース前")
             if st.button("🔫 スタート", type="primary", use_container_width=True):
@@ -550,12 +544,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         st.rerun()
         
         st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
-        # 修正: 手動でレース終了するボタン
-        if current_mode == "🎽 中継点モード":
-            if st.button("🔴 レースを終了して結果発表へ", use_container_width=True):
-                st.session_state["app_mode"] = "🏆 最終結果"
-                st.rerun()
-            st.write("")
 
         if st.button("↩️ 元に戻す", use_container_width=True, type="secondary"):
             try:
@@ -655,9 +643,8 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 </div>
             """, unsafe_allow_html=True)
 
-            # --- 修正: 完走証デザイン ---
+            # --- 修正: 完走証デザイン (紙吹雪なし) ---
             if last['Location'] == 'Finish':
-                st.balloons() # 紙吹雪
                 st.markdown(f"""
                     <div style="
                         border: 4px solid #FFD700; border-radius: 15px; background: linear-gradient(135deg, #262730, #444);
@@ -824,7 +811,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
     # 🏆 最終結果 (新規追加)
     # -------------------------------------
     elif current_mode == "🏆 最終結果":
-        st.balloons()
+        # ここも紙吹雪なし (st.balloons()削除)
         st.markdown("""
             <div style="text-align: center; padding: 40px; background: linear-gradient(to right, #000, #434343); border-radius: 20px; color: white; margin-bottom: 30px;">
                 <h1 style="font-size: 50px; margin-bottom: 10px;">🏆 RACE RESULT</h1>
