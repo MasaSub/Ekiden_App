@@ -1,5 +1,5 @@
 # ==========================================
-# version = 2.0.4 date = 2026/01/11
+# version = 2.0.5 date = 2026/01/11
 # ==========================================
 
 import streamlit as st
@@ -17,12 +17,12 @@ import streamlit.components.v1 as components
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 2.0.4"
+VERSION = "ver 2.0.5"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_LOG = "latest-log"
 WORKSHEET_CONFIG = "config"
-WORKSHEET_INDEX = "race_index" # 過去レース管理用
+WORKSHEET_INDEX = "race_index"
 JST = ZoneInfo("Asia/Tokyo")
 CACHE_TTL_SEC = 2.0
 ADMIN_PASSWORD = "0000"
@@ -56,7 +56,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 関数定義 (データ処理・UI描画)
+# 関数定義
 # ==========================================
 def get_gspread_client():
     scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -120,11 +120,8 @@ def fmt_diff(sec):
     sign = "+" if sec > 0 else "-" if sec < 0 else "±"
     return f"{sign}{fmt_time(abs(sec))}"
 
-# --- UI描画ロジックの共通化 (分析 & 結果) ---
+# --- UI描画ロジック ---
 def render_analysis_dashboard(df, teams_info):
-    """分析モードと過去ログ閲覧モードで共通使用するダッシュボード描画"""
-    
-    # データ前処理
     analysis_data = []
     points_order = df[['Section', 'Location']].drop_duplicates()
     points_order = points_order[points_order['Location'] != 'Start']
@@ -214,7 +211,6 @@ def render_analysis_dashboard(df, teams_info):
             st.success(f"👑 区間トップ: **{best['Team']}** ({best['LapStr']})")
 
 def render_result_list(df):
-    """最終結果リストの描画"""
     finish_df = df[df['Location'] == 'Finish'].copy()
     if finish_df.empty:
         st.warning("完走したチームはありません")
@@ -524,7 +520,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         st.rerun()
         
         st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
-        # 修正: Undoボタンのみ配置
         if st.button("↩️ 元に戻す", use_container_width=True, type="secondary"):
             try:
                 gc = get_gspread_client()
@@ -671,7 +666,7 @@ elif current_mode == "📂 過去のレース":
                 with v_tab2: render_result_list(old_df)
 
 # ==========================================
-# ⚙️ 管理者モード
+# ⚙️ 管理者モード (v2.0.5 強化版)
 # ==========================================
 elif current_mode == "⚙️ 管理者モード":
     st.header("⚙️ 管理者モード")
@@ -679,18 +674,16 @@ elif current_mode == "⚙️ 管理者モード":
     
     if pwd == ADMIN_PASSWORD:
         st.success("認証成功")
-        if st.button("設定データを強制リロード"): st.session_state["race_config"]=None; st.cache_data.clear(); st.rerun()
+        if st.button("設定データを強制リロード", use_container_width=True): st.session_state["race_config"]=None; st.cache_data.clear(); st.rerun()
 
+        # --- 1. アーカイブ処理 ---
         st.divider()
-        st.write("### 📦 レースのアーカイブと終了")
-        if st.button("📦 レースを終了してアーカイブ", type="primary"):
+        st.write("### 📦 レースのアーカイブ")
+        if st.button("📦 レースを終了してアーカイブ", type="primary", use_container_width=True):
             if not config: st.error("configがありません"); st.stop()
-            
             try:
                 gc = get_gspread_client()
                 sh = gc.open_by_url(SHEET_URL)
-                
-                # 修正: ヘッダー付きでシート作成
                 try: ws_idx = sh.worksheet(WORKSHEET_INDEX)
                 except: 
                     ws_idx = sh.add_worksheet(WORKSHEET_INDEX, 100, 10)
@@ -707,7 +700,6 @@ elif current_mode == "⚙️ 管理者モード":
                 ws_conf.duplicate(new_sheet_name=conf_name)
                 
                 ws_idx.append_row([race_id, config.get("RaceName", "Unknown"), datetime.now(JST).strftime('%Y-%m-%d %H:%M'), log_name, conf_name, ""])
-                
                 ws_log.clear(); ws_log.append_row(["TeamID", "TeamName", "Section", "Location", "Time", "KM-Lap", "SEC-Lap", "Split", "Rank", "Race"])
                 ws_conf.clear(); ws_conf.append_row(["Key", "Value"])
                 
@@ -717,28 +709,93 @@ elif current_mode == "⚙️ 管理者モード":
                 st.success(f"アーカイブ完了！: {race_id}")
                 st.rerun()
             except Exception as e: st.error(f"アーカイブエラー: {e}")
-        
-        # 修正: アーカイブ修復ボタンの追加
-        st.write("### 🔧 トラブルシューティング")
+
+        # --- 2. アーカイブ削除 (ゴミ箱) ---
+        st.write("#### 🗑️ アーカイブ削除")
+        idx_df = load_data(conn, WORKSHEET_INDEX)
+        if not idx_df.empty and "RaceID" in idx_df.columns:
+            del_targets = st.multiselect("削除するアーカイブを選択", idx_df['RaceID'].tolist())
+            if del_targets and st.button("選択したアーカイブを削除 (復元不可)", type="secondary"):
+                gc = get_gspread_client()
+                sh = gc.open_by_url(SHEET_URL)
+                ws_idx = sh.worksheet(WORKSHEET_INDEX)
+                
+                for rid in del_targets:
+                    # 関連シート削除
+                    row = idx_df[idx_df['RaceID'] == rid].iloc[0]
+                    try: sh.del_worksheet(sh.worksheet(row['LogSheet']))
+                    except: pass
+                    try: sh.del_worksheet(sh.worksheet(row['ConfigSheet']))
+                    except: pass
+                
+                # インデックス更新 (全書き換えで対応)
+                new_idx_data = idx_df[~idx_df['RaceID'].isin(del_targets)].values.tolist()
+                ws_idx.clear()
+                ws_idx.append_row(["RaceID", "RaceName", "Date", "LogSheet", "ConfigSheet", "Note"])
+                if new_idx_data: ws_idx.append_rows(new_idx_data)
+                
+                st.cache_data.clear()
+                st.success("削除しました")
+                st.rerun()
+
+        # --- 3. 🔧 トラブルシューティング ---
+        st.write("#### 🔧 トラブルシューティング")
         if st.button("🔧 アーカイブ一覧が表示されない場合の修復"):
             gc = get_gspread_client()
             sh = gc.open_by_url(SHEET_URL)
             try:
                 ws_idx = sh.worksheet(WORKSHEET_INDEX)
                 vals = ws_idx.get_all_values()
-                # ヘッダーが無い、または間違っている場合に挿入
                 if not vals or vals[0][0] != "RaceID":
                     ws_idx.insert_row(["RaceID", "RaceName", "Date", "LogSheet", "ConfigSheet", "Note"], index=1)
                     st.success("インデックスシートのヘッダーを修復しました。")
                     st.cache_data.clear()
-                else:
-                    st.info("インデックスシートは正常のようです。")
-            except Exception as e:
-                st.error(f"修復エラー: {e}")
+                else: st.info("正常です。")
+            except Exception as e: st.error(f"修復エラー: {e}")
 
         st.divider()
-        st.write("### 🚨 プロジェクトリセット (アーカイブなし)")
-        if st.button("🗑️ データを全消去してリセット"):
+
+        # --- 4. 🔧 設定(Config)の直接編集 ---
+        st.write("### 🔧 設定(Config)の直接編集")
+        st.info("チーム名やレース設定を修正できます。")
+        conf_df = load_data(conn, WORKSHEET_CONFIG)
+        if not conf_df.empty:
+            edited_conf = st.data_editor(conf_df, num_rows="dynamic", key="edit_conf")
+            if st.button("設定を保存", key="save_conf"):
+                conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_CONFIG, data=edited_conf)
+                st.session_state["race_config"] = None # 再読み込み強制
+                st.cache_data.clear()
+                st.success("設定を更新しました。リロードします。")
+                st.rerun()
+
+        # --- 5. 📝 ログデータの直接編集 ---
+        st.write("### 📝 ログデータの直接編集")
+        st.warning("⚠️ 取り扱い注意: タイム形式などを間違えるとエラーの原因になります。")
+        log_df = load_data(conn, WORKSHEET_LOG)
+        if not log_df.empty:
+            # 誤変換防止のため全カラムをテキストとして扱う設定
+            column_config = {
+                "Time": st.column_config.TextColumn("Time (HH:MM:SS.f)"),
+                "Split": st.column_config.TextColumn("Split (H:MM:SS)"),
+                "KM-Lap": st.column_config.TextColumn("KM-Lap"),
+                "SEC-Lap": st.column_config.TextColumn("SEC-Lap"),
+                "Rank": st.column_config.TextColumn("Rank"),
+            }
+            edited_log = st.data_editor(log_df, num_rows="dynamic", column_config=column_config, key="edit_log")
+            
+            col_save, col_check = st.columns([1, 2])
+            with col_check:
+                confirm_save = st.checkbox("編集内容を反映する（取り消せません）")
+            with col_save:
+                if st.button("ログを保存", key="save_log", type="primary", disabled=not confirm_save):
+                    conn.update(spreadsheet=SHEET_URL, worksheet=WORKSHEET_LOG, data=edited_log)
+                    st.cache_data.clear()
+                    st.success("ログデータを更新しました")
+                    st.rerun()
+
+        st.divider()
+        st.write("### 🚨 プロジェクトリセット")
+        if st.button("🗑️ データを全消去してリセット (アーカイブなし)"):
             gc = get_gspread_client()
             sh = gc.open_by_url(SHEET_URL)
             try: 
