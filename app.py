@@ -283,7 +283,7 @@ if current_mode == "🏁 レース作成":
         st.divider()
         main_team_sel = st.selectbox("★メインチーム", main_team_options)
         
-        if st.form_submit_button("設定を保存してスタート", type="primary"):
+        if st.form_submit_button("設定を保存してスタート", type="primary", use_container_width=True):
             initialize_race(race_name, section_count, teams_input, main_team_sel)
             st.success("セットアップ完了！")
             st.session_state["app_mode"] = "⏱️ 記録点モード"
@@ -333,7 +333,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         
         if df.empty:
             st.info("レース前")
-            if st.button("🔫 スタート", type="primary"):
+            if st.button("🔫 スタート", type="primary", use_container_width=True):
                 now = datetime.now(JST)
                 start_rows = []
                 for tid in team_ids_ordered:
