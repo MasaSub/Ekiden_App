@@ -26,8 +26,8 @@ WORKSHEET_INDEX = "race_index"
 JST = ZoneInfo("Asia/Tokyo")
 
 # 軽量化: キャッシュと更新間隔を長めにとる
-CACHE_TTL_SEC = 15.0 
-AUTOREFRESH_INTERVAL = 15000 # 15秒
+CACHE_TTL_SEC = 4.0 
+AUTOREFRESH_INTERVAL = 10000 # 15秒
 
 ADMIN_PASSWORD = "0000"
 
