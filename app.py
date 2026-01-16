@@ -1,5 +1,5 @@
 # ==========================================
-# version = 2.0.6 (Fixed) date = 2026/01/17
+# version = 2.0.6 (Fixed 2) date = 2026/01/17
 # ==========================================
 
 import streamlit as st
@@ -26,8 +26,8 @@ WORKSHEET_INDEX = "race_index"
 JST = ZoneInfo("Asia/Tokyo")
 
 # 軽量化: キャッシュと更新間隔を長めにとる
-CACHE_TTL_SEC = 4.0 
-AUTOREFRESH_INTERVAL = 10000 # 15秒
+CACHE_TTL_SEC = 15.0 
+AUTOREFRESH_INTERVAL = 15000 # 15秒
 
 ADMIN_PASSWORD = "0000"
 
@@ -183,7 +183,7 @@ def fetch_config_from_sheet(conn, sheet_name=WORKSHEET_CONFIG):
         return config
     except: return None
 
-# --- UI描画ロジック (ここが抜けていました！) ---
+# --- UI描画ロジック ---
 def render_analysis_dashboard(df, teams_info):
     analysis_data = []
     points_order = df[['Section', 'Location']].drop_duplicates()
@@ -442,6 +442,7 @@ if current_mode == "🏁 レース作成":
     if is_race_started and config is not None: st.session_state["app_mode"] = "⏱️ 記録点モード"; st.rerun()
     if is_race_started: st.warning("レース進行中のため作成できません。"); st.stop()
     
+    # 修正: 上限25チーム
     team_count = st.number_input("チーム数", min_value=1, max_value=25, value=3)
     
     with st.form("setup_form"):
@@ -483,6 +484,9 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             teams_info[tid] = v
             team_ids_ordered.append(tid)
     
+    # 修正: メインチームを先頭にする処理を削除 (ID順のまま)
+    # if main_team_id in team_ids_ordered: ... (削除)
+
     team_status = {}
     finish_count = 0
     if not df.empty:
@@ -502,6 +506,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 now = datetime.now(JST)
                 start_rows = []
                 for tid in team_ids_ordered:
+                    # 軽量化: 書き込みカラム削減
                     start_rows.append([tid, teams_info[tid], "1区", "Start", get_time_str(now), config["RaceName"]])
                 gc = get_gspread_client()
                 gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_LOG).append_rows(start_rows)
@@ -511,12 +516,14 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         
         def record_point(tid, section, location, is_finish=False):
             now = datetime.now(JST)
+            # 軽量化: 計算はPython側で行うため、書き込みは時刻だけでOK
             new_row = [tid, teams_info[tid], section, location, get_time_str(now), config["RaceName"]]
             gc = get_gspread_client()
             gc.open_by_url(SHEET_URL).worksheet(WORKSHEET_LOG).append_row(new_row)
             st.cache_data.clear()
             st.toast(f"{teams_info[tid]}: {location} 記録完了")
 
+        # 修正: km -> Point 表記
         target_point = 1
         if current_mode == "⏱️ 記録点モード":
             target_point = st.number_input("記録する地点番号 (P_)", min_value=1, max_value=50, value=1)
@@ -525,6 +532,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         for tid in team_ids_ordered:
             status = team_status.get(tid)
             t_name = teams_info.get(tid, tid)
+            # 修正: メインチームだけPrimary色、他はSecondary
             btn_type = "primary" if str(tid) == str(main_team_id) else "secondary"
 
             if status is None:
@@ -541,6 +549,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 curr_sec_str = f"{curr_sec_num}区"
             
             if current_mode == "⏱️ 記録点モード":
+                # 修正: P1, P2... 表記
                 label = f"【No.{tid}】 {t_name}  ▶  P{target_point}"
                 if st.button(label, key=f"btn_dist_{tid}", type=btn_type, use_container_width=True):
                     record_point(tid, curr_sec_str, f"P{target_point}")
@@ -548,11 +557,13 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             elif current_mode == "🎽 中継点モード":
                 is_anchor = (curr_sec_num >= total_sections)
                 if is_anchor:
-                    if st.button(f"🏆 【No.{tid}】 {t_name}  ▶  Finish", key=f"btn_fin_{tid}", type="primary", use_container_width=True):
+                    # 修正: type=btn_type を適用
+                    if st.button(f"🏆 【No.{tid}】 {t_name}  ▶  Finish", key=f"btn_fin_{tid}", type=btn_type, use_container_width=True):
                         record_point(tid, curr_sec_str, "Finish", is_finish=True)
                         st.rerun()
                 else:
-                    if st.button(f"🎽 【No.{tid}】 {t_name}  ▶  Relay ({curr_sec_num + 1}区)", key=f"btn_rel_{tid}", type="primary", use_container_width=True):
+                    # 修正: type=btn_type を適用
+                    if st.button(f"🎽 【No.{tid}】 {t_name}  ▶  Relay ({curr_sec_num + 1}区)", key=f"btn_rel_{tid}", type=btn_type, use_container_width=True):
                         record_point(tid, curr_sec_str, "Relay")
                         st.rerun()
         
@@ -567,6 +578,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
 
     # 📣 観戦モード
     elif current_mode == "📣 観戦モード":
+        # 修正: 更新間隔延長
         st_autorefresh(interval=AUTOREFRESH_INTERVAL, key="watch_refresh")
         
         if "watch_tid" not in st.session_state: st.session_state["watch_tid"] = main_team_id
@@ -580,10 +592,12 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
         if t_df.empty: st.info("まだ記録がありません")
         else:
             last = t_df.iloc[-1]
-            last_time = last['dt']
+            last_time = last['dt'] # 計算済みオブジェクトを使用
             now = datetime.now(JST)
+            
             try: start_time = df[df['Location'] == 'Start'].iloc[0]['dt']
             except: start_time = now
+            
             sec_start_time = start_time
             if last['Section'] != "1区":
                 prev_relay = t_df[(t_df['Section'] == f"{int(last['Section'].replace('区',''))-1}区") & (t_df['Location'] == 'Relay')]
@@ -593,11 +607,13 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             
             loc_raw = last['Location']
             display_loc = f"{last['Section']} {loc_raw}"
-            if "P" in loc_raw: display_loc = f"🏃‍♂️ 現在地: {last['Section']} {loc_raw} 〜"
+            if "P" in loc_raw: # P1, P2...
+                 display_loc = f"🏃‍♂️ 現在地: {last['Section']} {loc_raw} 〜"
             elif loc_raw == "Start": display_loc = "🏃‍♂️ 現在地: スタート地点"
             elif loc_raw == "Relay": display_loc = f"🏃‍♂️ 現在地: {last['Section']} 中継所"
             elif loc_raw == "Finish": display_loc = "🏃‍♂️ 現在地: フィニッシュ"
 
+            # 修正: Rank表示を削除し、通過順(Pass Order)として小さく表示
             st.markdown(f"""
                 <style>
                 .info-panel {{ background-color: #262730; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #4f4f4f; text-align: center; width: 100%; box-sizing: border-box; }}
@@ -621,6 +637,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 """, unsafe_allow_html=True)
             else: show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
+            # 直近ラップ
             try:
                 last_lap = str(last.get('KM-Lap', '-'))
                 if last_lap and last_lap != "nan":
@@ -631,7 +648,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             st.write("📝 通過履歴")
             st.dataframe(t_df[['Section', 'Location', 'Split', 'KM-Lap']].iloc[::-1], use_container_width=True, hide_index=True)
 
-    # 📈 分析モード
+    # 📈 分析モード (UI共通化関数を使用)
     elif current_mode == "📈 分析モード":
         st.header("📈 レース分析")
         if st.button("🔄 データ更新", type="secondary", use_container_width=False): st.cache_data.clear(); st.rerun()
@@ -757,13 +774,17 @@ elif current_mode == "⚙️ 管理者モード":
         st.warning("時刻(Time)を修正すると、ラップなどは自動再計算されます。")
         log_df = load_data(conn, WORKSHEET_LOG)
         if not log_df.empty:
+            # 修正: カラムを減らしたのでConfigも合わせる
             column_config = {
                 "Time": st.column_config.TextColumn("Time (HH:MM:SS.f)"),
                 "Split": st.column_config.TextColumn("Split (自動計算)", disabled=True),
                 "KM-Lap": st.column_config.TextColumn("Point-Lap (自動計算)", disabled=True),
                 "Rank": st.column_config.TextColumn("Rank (自動計算)", disabled=True),
             }
+            # 表示用に計算済みDFを使うが、保存時は生データに戻す必要がある
+            # ここではシンプルに生データを編集させる（計算列は見せない、または無視する）
             raw_columns = ["TeamID", "TeamName", "Section", "Location", "Time", "Race"]
+            # 存在しないカラムは無視してフィルタリング
             display_cols = [c for c in raw_columns if c in log_df.columns]
             
             edited_log = st.data_editor(log_df[display_cols], num_rows="dynamic", column_config=column_config, key="edit_log")
