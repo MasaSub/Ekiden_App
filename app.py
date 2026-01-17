@@ -1,5 +1,5 @@
 # ==========================================
-# version = 2.0.7 date = 2026/01/17
+# version = 2.0.8 date = 2026/01/17
 # ==========================================
 
 import streamlit as st
@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 2.0.7"
+VERSION = "ver 2.0.8"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_LOG = "latest-log"
@@ -188,7 +188,7 @@ def fetch_config_from_sheet(conn, sheet_name=WORKSHEET_CONFIG):
         return config
     except: return None
 
-# --- UI描画ロジック (グラフ強調版) ---
+# --- UI描画ロジック (グラフ強調 + 完全インタラクティブ版) ---
 def render_analysis_dashboard(df, teams_info):
     analysis_data = []
     points_order = df[['Section', 'Location']].drop_duplicates().reset_index(drop=True)
@@ -255,8 +255,6 @@ def render_analysis_dashboard(df, teams_info):
                        axis=alt.Axis(tickMinStep=1, labels=False))
 
         # --- 強調表示の設定 ---
-        # メイン: 赤(#FF4B4B)・太さ3・不透明度1.0
-        # 他: グレー(#CCCCCC)・太さ1・不透明度0.5
         color_cond = alt.condition(alt.datum.Team == main_team_name, alt.value('#FF4B4B'), alt.value('#CCCCCC'))
         size_cond = alt.condition(alt.datum.Team == main_team_name, alt.value(3), alt.value(1))
         opacity_cond = alt.condition(alt.datum.Team == main_team_name, alt.value(1.0), alt.value(0.5))
@@ -268,18 +266,20 @@ def render_analysis_dashboard(df, teams_info):
                         axis=alt.Axis(values=rank_ticks, format='d'), title='通過順').scale(reverse=True),
                 color=color_cond, size=size_cond, opacity=opacity_cond,
                 tooltip=['Team', 'PointLabel', 'Rank', 'Split']
-            ).properties(height=500).interactive(bind_y=False)
+            ).properties(height=500).interactive() # 修正: 縦横自由にズーム可能に
+            
             st.altair_chart(chart, use_container_width=True)
-            st.caption("※グラフ操作: ドラッグでスクロール、ホイールで拡大縮小。赤色がメインチームです。")
+            st.caption("※グラフ操作: ドラッグでスクロール、ホイール/ピンチで拡大縮小。赤色がメインチームです。")
         else:
             chart = alt.Chart(ana_df).mark_line(point=True).encode(
                 x=x_axis,
                 y=alt.Y('GapSeconds', scale=alt.Scale(reverse=True, nice=True), title='トップ差(秒)'),
                 color=color_cond, size=size_cond, opacity=opacity_cond,
                 tooltip=['Team', 'PointLabel', 'Rank', 'GapSeconds']
-            ).properties(height=500).interactive(bind_y=False)
+            ).properties(height=500).interactive() # 修正: 縦横自由にズーム可能に
+            
             st.altair_chart(chart, use_container_width=True)
-            st.caption("※グラフ操作: ドラッグでスクロール、ホイールで拡大縮小。赤色がメインチームです。")
+            st.caption("※グラフ操作: ドラッグでスクロール、ホイール/ピンチで拡大縮小。赤色がメインチームです。")
 
     with tab2:
         cols = st.columns(2)
@@ -600,7 +600,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 if len(all_vals) > 1: ws.delete_rows(len(all_vals)); st.cache_data.clear(); st.toast("削除しました"); st.rerun()
             except Exception as e: st.error(f"Undoエラー: {e}")
 
-    # 📣 観戦モード
+    # 📣 観戦モード (v2.0.7)
     elif current_mode == "📣 観戦モード":
         st_autorefresh(interval=AUTOREFRESH_INTERVAL, key="watch_refresh")
         
@@ -688,26 +688,17 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
             st.divider()
             st.write("📝 通過履歴")
             
-            # --- 履歴テーブルの表示 (v2.0.7改良版) ---
+            # --- 履歴テーブル (v2.0.7) ---
             history_df = t_df[['Section', 'Location', 'Rank', 'Split', 'KM-Lap', 'PrevDiff']].iloc[::-1].copy()
-            
-            # 前との差をフォーマット
             def fmt_diff_val(x):
                 if pd.isna(x): return "-"
                 return f"+{fmt_time(x)}"
-            
             history_df['前との差'] = history_df['PrevDiff'].apply(fmt_diff_val)
-            
             history_df = history_df.rename(columns={
                 'Section': '区間', 'Location': '地点', 
                 'Rank': '通過順', 'Split': 'タイム', 'KM-Lap': 'P-Lap'
             })
-            
-            st.dataframe(
-                history_df[['区間', '地点', '通過順', 'タイム', 'P-Lap', '前との差']], 
-                use_container_width=True, 
-                hide_index=True
-            )
+            st.dataframe(history_df[['区間', '地点', '通過順', 'タイム', 'P-Lap', '前との差']], use_container_width=True, hide_index=True)
 
     # 📈 分析モード
     elif current_mode == "📈 分析モード":
