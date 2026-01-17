@@ -183,19 +183,39 @@ def fetch_config_from_sheet(conn, sheet_name=WORKSHEET_CONFIG):
         return config
     except: return None
 
-# --- UI描画ロジック (分析画面) ---
+
+    # --- UI描画ロジック (グラフ機能強化版) ---
 def render_analysis_dashboard(df, teams_info):
     analysis_data = []
-    points_order = df[['Section', 'Location']].drop_duplicates()
+    # ポイントの順序を確定
+    points_order = df[['Section', 'Location']].drop_duplicates().reset_index(drop=True)
     points_order = points_order[points_order['Location'] != 'Start']
+    
+    # ポイントに連番(ID)を振るための辞書
+    point_map = {f"{row['Section']}_{row['Location']}": i for i, row in points_order.iterrows()}
+    
+    # 直近5区間の範囲を特定
+    all_sections = points_order['Section'].unique().tolist()
+    recent_sections = all_sections[-5:] if len(all_sections) > 5 else all_sections
+    
+    # 初期表示範囲(ドメイン)の計算
+    domain_min, domain_max = 0, len(points_order)
+    if recent_sections:
+        # 直近区間に含まれるポイントIDの最小・最大を探す
+        recent_mask = points_order['Section'].isin(recent_sections)
+        if recent_mask.any():
+            domain_min = recent_mask.idxmax() # 最初のTrueのインデックス
+            domain_max = len(points_order) # 最後まで
     
     for _, pt in points_order.iterrows():
         sec, loc = pt['Section'], pt['Location']
         pt_label = f"{sec} {loc}"
+        pt_key = f"{sec}_{loc}"
+        pt_id = point_map.get(pt_key, 0)
+        
         p_df = df[(df['Section'] == sec) & (df['Location'] == loc)].copy()
         if p_df.empty: continue
         
-        # load_dataで計算済みだが、念のため安全に取得
         if 'SplitSeconds' not in p_df.columns:
              p_df['SplitSeconds'] = p_df['Split'].apply(str_to_sec)
         
@@ -206,9 +226,15 @@ def render_analysis_dashboard(df, teams_info):
         for _, row in p_df.iterrows():
             tid = row['TeamID']
             analysis_data.append({
-                "TeamID": tid, "Team": teams_info.get(tid, tid), "PointLabel": pt_label, 
-                "Section": sec, "Location": loc, "Rank": row['TrueRank'],
-                "Split": row['Split'], "SplitSeconds": row['SplitSeconds'], 
+                "TeamID": tid, 
+                "Team": teams_info.get(tid, tid), 
+                "PointLabel": pt_label,
+                "PointID": pt_id, # 数値軸用
+                "Section": sec, 
+                "Location": loc, 
+                "Rank": row['TrueRank'],
+                "Split": row['Split'], 
+                "SplitSeconds": row['SplitSeconds'], 
                 "GapSeconds": row['SplitSeconds'] - top_time, 
                 "LapStr": row['SEC-Lap'], 
                 "KMLapStr": row.get('KM-Lap', '-'),
@@ -224,14 +250,11 @@ def render_analysis_dashboard(df, teams_info):
     main_tid = config.get("MainTeamID", "1")
     main_team_name = teams_info.get(str(main_tid), str(main_tid))
 
-    # 25色のパレット
     palette = [
-        '#FF4B4B', # 赤 (Main)
-        '#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd', '#8c564b', 
-        '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', 
-        '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5', '#c49c94', 
-        '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5', '#393b79', 
-        '#637939', '#8c6d31', '#843c39', '#7b4173'
+        '#FF4B4B', '#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd', '#8c564b', 
+        '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78', 
+        '#98df8a', '#ff9896', '#c5b0d5', '#c49c94', '#f7b6d2', '#c7c7c7', 
+        '#dbdb8d', '#9edae5', '#393b79', '#637939', '#8c6d31', '#843c39', '#7b4173'
     ]
     domain = ana_df['Team'].unique().tolist()
     range_colors = []
@@ -251,28 +274,40 @@ def render_analysis_dashboard(df, teams_info):
         max_rank = len(teams_info) if len(teams_info) > 0 else 1
         rank_ticks = list(range(1, max_rank + 1))
         
+        # X軸の設定 (数値軸にすることでズーム可能にする)
+        # 初期表示範囲(domain)を直近5区間に設定
+        x_axis = alt.X('PointID', 
+                       title='地点 (操作: ドラッグで移動、ホイールで拡大縮小)',
+                       scale=alt.Scale(domain=[domain_min, domain_max]),
+                       axis=alt.Axis(tickMinStep=1, labels=False) # ラベルは重なるので非表示
+        )
+
         if graph_type == "順位変動(通過順)":
             chart = alt.Chart(ana_df).mark_line(point=True).encode(
-                x=alt.X('PointLabel', sort=None, title='地点'),
+                x=x_axis,
                 y=alt.Y('Rank', scale=alt.Scale(domain=[1, max_rank], zero=False, nice=False), 
                         axis=alt.Axis(values=rank_ticks, format='d'), title='通過順').scale(reverse=True),
                 color=alt.Color('Team', scale=alt.Scale(domain=domain, range=range_colors)),
                 tooltip=['Team', 'PointLabel', 'Rank', 'Split']
-            ).properties(height=500).interactive(bind_y=False)
+            ).properties(height=500).interactive(bind_y=False) # X軸のみ操作可能
+            
             st.altair_chart(chart, use_container_width=True)
+            st.caption("※グラフ上をドラッグしてスクロール、ホイールで拡大縮小できます。地点名はポイントにカーソルを合わせると表示されます。")
+            
         else:
             chart = alt.Chart(ana_df).mark_line(point=True).encode(
-                x=alt.X('PointLabel', sort=None, title='地点'),
+                x=x_axis,
                 y=alt.Y('GapSeconds', scale=alt.Scale(reverse=True, nice=True), title='トップ差(秒)'),
                 color=alt.Color('Team', scale=alt.Scale(domain=domain, range=range_colors)),
                 tooltip=['Team', 'PointLabel', 'Rank', 'GapSeconds']
             ).properties(height=500).interactive(bind_y=False)
+            
             st.altair_chart(chart, use_container_width=True)
+            st.caption("※グラフ上をドラッグしてスクロール、ホイールで拡大縮小できます。")
 
     with tab2:
         cols = st.columns(2)
         tl = list(teams_info.values())
-        # メインチームをデフォルト選択
         try: main_idx = tl.index(main_team_name)
         except: main_idx = 0
         
@@ -290,7 +325,6 @@ def render_analysis_dashboard(df, teams_info):
                     for pt in cp:
                         ra, rb = da.loc[pt], db.loc[pt]
                         ds = ra['SplitSeconds'] - rb['SplitSeconds']
-                        # 修正: カラム名を変更
                         rr.append({
                             "地点": pt, 
                             f"{ta} 通過順": f"{ra['Rank']}", 
@@ -306,7 +340,6 @@ def render_analysis_dashboard(df, teams_info):
         tpt = st.selectbox("地点", popts, key=f"tpt_{len(df)}")
         if tpt:
             pdf = ana_df[ana_df['PointLabel']==tpt].copy()
-            # 修正: 表示項目整理
             ddf = pdf[['Rank','Team','Split','GapSeconds','LapStr']].sort_values('Rank')
             ddf.columns = ["通過順","チーム","タイム","トップ差","区間タイム"]
             ddf['トップ差'] = ddf['トップ差'].apply(lambda x: f"+{fmt_time(x)}" if x>0 else "-")
