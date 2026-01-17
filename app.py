@@ -1,5 +1,5 @@
 # ==========================================
-# version = 2.0.6 date = 2026/01/17
+# version = 2.0.7 date = 2026/01/17
 # ==========================================
 
 import streamlit as st
@@ -17,7 +17,7 @@ import streamlit.components.v1 as components
 # ==========================================
 # 設定・定数
 # ==========================================
-VERSION = "ver 2.0.6"
+VERSION = "ver 2.0.7"
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1-GSNYQYulO-83vdMOn7Trqv4l6eCjo9uzaP20KQgSS4/edit" # 【要修正】URL確認
 WORKSHEET_LOG = "latest-log"
@@ -106,13 +106,13 @@ def str_to_sec(time_str):
     except: return 0.0
 
 def fmt_diff(sec):
-    if sec is None: return "-"
+    if sec is None or math.isnan(sec): return "-"
     sign = "+" if sec > 0 else "-" if sec < 0 else "±"
     return f"{sign}{fmt_time(abs(sec))}"
 
 def load_data(conn, sheet_name):
     """
-    データを読み込み、アプリ側でラップ・スプリット・順位を自動計算して付与する。
+    データを読み込み、アプリ側でラップ・スプリット・順位・前後差を全自動計算して付与する。
     """
     try:
         df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=CACHE_TTL_SEC)
@@ -122,7 +122,7 @@ def load_data(conn, sheet_name):
         for col in df.columns:
             df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True)
         
-        # --- 自動計算ロジック (v2.0.6) ---
+        # --- 自動計算ロジック (v2.0.7) ---
         df['dt'] = df['Time'].apply(parse_time_str)
         df = df.sort_values('dt')
         
@@ -162,12 +162,17 @@ def load_data(conn, sheet_name):
         if calculated_rows:
             df_calc = pd.concat(calculated_rows)
             df_calc['Split'] = df_calc['SplitSeconds'].apply(fmt_time)
-            df_calc['KM-Lap'] = df_calc['PointSeconds'].apply(fmt_lap) # KM-Lapカラムを再利用(実質PointLap)
+            df_calc['KM-Lap'] = df_calc['PointSeconds'].apply(fmt_lap) # KM-Lapカラムを再利用
             df_calc['SEC-Lap'] = df_calc['SectionSeconds'].apply(fmt_lap)
             
             # 順位計算 (通過順)
             df_calc['Rank'] = df_calc.groupby(['Section', 'Location'])['dt'].rank(method='first').astype(int)
-            return df_calc.sort_index()
+            
+            # 前との差 (PrevDiff) 計算: 地点ごとにソートしてdiffをとる
+            df_calc = df_calc.sort_values(['Section', 'Location', 'SplitSeconds'])
+            df_calc['PrevDiff'] = df_calc.groupby(['Section', 'Location'])['SplitSeconds'].diff()
+            
+            return df_calc.sort_index() # Time順に戻す
             
         return df
     except Exception:
@@ -183,30 +188,25 @@ def fetch_config_from_sheet(conn, sheet_name=WORKSHEET_CONFIG):
         return config
     except: return None
 
-
-    # --- UI描画ロジック (グラフ機能強化版) ---
+# --- UI描画ロジック (グラフ強調版) ---
 def render_analysis_dashboard(df, teams_info):
     analysis_data = []
-    # ポイントの順序を確定
     points_order = df[['Section', 'Location']].drop_duplicates().reset_index(drop=True)
     points_order = points_order[points_order['Location'] != 'Start']
     
-    # ポイントに連番(ID)を振るための辞書
+    # ポイントIDマップ
     point_map = {f"{row['Section']}_{row['Location']}": i for i, row in points_order.iterrows()}
     
-    # 直近5区間の範囲を特定
+    # 直近5区間
     all_sections = points_order['Section'].unique().tolist()
     recent_sections = all_sections[-5:] if len(all_sections) > 5 else all_sections
-    
-    # 初期表示範囲(ドメイン)の計算
     domain_min, domain_max = 0, len(points_order)
     if recent_sections:
-        # 直近区間に含まれるポイントIDの最小・最大を探す
         recent_mask = points_order['Section'].isin(recent_sections)
         if recent_mask.any():
-            domain_min = recent_mask.idxmax() # 最初のTrueのインデックス
-            domain_max = len(points_order) # 最後まで
-    
+            domain_min = recent_mask.idxmax()
+            domain_max = len(points_order)
+
     for _, pt in points_order.iterrows():
         sec, loc = pt['Section'], pt['Location']
         pt_label = f"{sec} {loc}"
@@ -226,18 +226,11 @@ def render_analysis_dashboard(df, teams_info):
         for _, row in p_df.iterrows():
             tid = row['TeamID']
             analysis_data.append({
-                "TeamID": tid, 
-                "Team": teams_info.get(tid, tid), 
-                "PointLabel": pt_label,
-                "PointID": pt_id, # 数値軸用
-                "Section": sec, 
-                "Location": loc, 
-                "Rank": row['TrueRank'],
-                "Split": row['Split'], 
-                "SplitSeconds": row['SplitSeconds'], 
+                "TeamID": tid, "Team": teams_info.get(tid, tid), "PointLabel": pt_label, "PointID": pt_id,
+                "Section": sec, "Location": loc, "Rank": row['TrueRank'],
+                "Split": row['Split'], "SplitSeconds": row['SplitSeconds'], 
                 "GapSeconds": row['SplitSeconds'] - top_time, 
-                "LapStr": row['SEC-Lap'], 
-                "KMLapStr": row.get('KM-Lap', '-'),
+                "LapStr": row['SEC-Lap'], "KMLapStr": row.get('KM-Lap', '-'),
             })
     ana_df = pd.DataFrame(analysis_data)
     
@@ -245,27 +238,10 @@ def render_analysis_dashboard(df, teams_info):
         st.warning("データ不足のため表示できません")
         return
 
-    # --- 色設定 (25色対応) ---
+    # メインチーム情報
     config = st.session_state.get("race_config", {})
     main_tid = config.get("MainTeamID", "1")
     main_team_name = teams_info.get(str(main_tid), str(main_tid))
-
-    palette = [
-        '#FF4B4B', '#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd', '#8c564b', 
-        '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', '#ffbb78', 
-        '#98df8a', '#ff9896', '#c5b0d5', '#c49c94', '#f7b6d2', '#c7c7c7', 
-        '#dbdb8d', '#9edae5', '#393b79', '#637939', '#8c6d31', '#843c39', '#7b4173'
-    ]
-    domain = ana_df['Team'].unique().tolist()
-    range_colors = []
-    color_idx = 1
-    
-    for team in domain:
-        if team == main_team_name:
-            range_colors.append('#FF4B4B')
-        else:
-            range_colors.append(palette[color_idx % len(palette)])
-            color_idx += 1
 
     tab1, tab2, tab3 = st.tabs(["📈 レース推移", "⚔️ チーム比較", "📍 地点別詳細"])
     
@@ -274,43 +250,42 @@ def render_analysis_dashboard(df, teams_info):
         max_rank = len(teams_info) if len(teams_info) > 0 else 1
         rank_ticks = list(range(1, max_rank + 1))
         
-        # X軸の設定 (数値軸にすることでズーム可能にする)
-        # 初期表示範囲(domain)を直近5区間に設定
-        x_axis = alt.X('PointID', 
-                       title='地点 (操作: ドラッグで移動、ホイールで拡大縮小)',
+        x_axis = alt.X('PointID', title='地点 (操作: ドラッグ移動/ホイール拡大)', 
                        scale=alt.Scale(domain=[domain_min, domain_max]),
-                       axis=alt.Axis(tickMinStep=1, labels=False) # ラベルは重なるので非表示
-        )
+                       axis=alt.Axis(tickMinStep=1, labels=False))
+
+        # --- 強調表示の設定 ---
+        # メイン: 赤(#FF4B4B)・太さ3・不透明度1.0
+        # 他: グレー(#CCCCCC)・太さ1・不透明度0.5
+        color_cond = alt.condition(alt.datum.Team == main_team_name, alt.value('#FF4B4B'), alt.value('#CCCCCC'))
+        size_cond = alt.condition(alt.datum.Team == main_team_name, alt.value(3), alt.value(1))
+        opacity_cond = alt.condition(alt.datum.Team == main_team_name, alt.value(1.0), alt.value(0.5))
 
         if graph_type == "順位変動(通過順)":
             chart = alt.Chart(ana_df).mark_line(point=True).encode(
                 x=x_axis,
                 y=alt.Y('Rank', scale=alt.Scale(domain=[1, max_rank], zero=False, nice=False), 
                         axis=alt.Axis(values=rank_ticks, format='d'), title='通過順').scale(reverse=True),
-                color=alt.Color('Team', scale=alt.Scale(domain=domain, range=range_colors)),
+                color=color_cond, size=size_cond, opacity=opacity_cond,
                 tooltip=['Team', 'PointLabel', 'Rank', 'Split']
-            ).properties(height=500).interactive(bind_y=False) # X軸のみ操作可能
-            
+            ).properties(height=500).interactive(bind_y=False)
             st.altair_chart(chart, use_container_width=True)
-            st.caption("※グラフ上をドラッグしてスクロール、ホイールで拡大縮小できます。地点名はポイントにカーソルを合わせると表示されます。")
-            
+            st.caption("※グラフ操作: ドラッグでスクロール、ホイールで拡大縮小。赤色がメインチームです。")
         else:
             chart = alt.Chart(ana_df).mark_line(point=True).encode(
                 x=x_axis,
                 y=alt.Y('GapSeconds', scale=alt.Scale(reverse=True, nice=True), title='トップ差(秒)'),
-                color=alt.Color('Team', scale=alt.Scale(domain=domain, range=range_colors)),
+                color=color_cond, size=size_cond, opacity=opacity_cond,
                 tooltip=['Team', 'PointLabel', 'Rank', 'GapSeconds']
             ).properties(height=500).interactive(bind_y=False)
-            
             st.altair_chart(chart, use_container_width=True)
-            st.caption("※グラフ上をドラッグしてスクロール、ホイールで拡大縮小できます。")
+            st.caption("※グラフ操作: ドラッグでスクロール、ホイールで拡大縮小。赤色がメインチームです。")
 
     with tab2:
         cols = st.columns(2)
         tl = list(teams_info.values())
         try: main_idx = tl.index(main_team_name)
         except: main_idx = 0
-        
         if tl:
             with cols[0]: ta = st.selectbox("チームA", tl, index=main_idx, key=f"ta_{len(df)}")
             with cols[1]: tb = st.selectbox("チームB", tl, index=(main_idx + 1) % len(tl) if len(tl) > 1 else 0, key=f"tb_{len(df)}")
@@ -350,18 +325,14 @@ def render_result_list(df):
     if finish_df.empty:
         st.warning("完走したチームはありません")
         return
-
-    # load_dataで計算済みならSplitSecondsを使う
     if 'SplitSeconds' not in finish_df.columns:
         finish_df['SplitSeconds'] = finish_df['Split'].apply(str_to_sec)
-        
     finish_df = finish_df.sort_values('SplitSeconds').reset_index(drop=True)
     
     for idx, row in finish_df.iterrows():
         rank = idx + 1
         medal = "🥇" if rank==1 else "🥈" if rank==2 else "🥉" if rank==3 else f"{rank}位"
         bg = "#FFD700" if rank==1 else "#C0C0C0" if rank==2 else "#CD7F32" if rank==3 else "#eee"
-        
         st.markdown(f"""
             <div style="display: flex; align-items: center; justify-content: space-between;
                 background-color: white; color: black; padding: 15px 20px; border-radius: 10px; margin-bottom: 10px;
@@ -375,12 +346,10 @@ def render_result_list(df):
 def initialize_race(race_name, section_count, teams_dict, main_team_id):
     gc = get_gspread_client()
     sh = gc.open_by_url(SHEET_URL)
-    
     try: sh.worksheet(WORKSHEET_INDEX)
     except: 
         ws_idx = sh.add_worksheet(title=WORKSHEET_INDEX, rows=100, cols=10)
         ws_idx.append_row(["RaceID", "RaceName", "Date", "LogSheet", "ConfigSheet", "Note"])
-
     try: 
         ws_log = sh.worksheet(WORKSHEET_LOG)
         ws_log.clear()
@@ -391,7 +360,6 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
         ws_conf.clear()
         ws_conf.append_row(["Key", "Value"])
     except: pass
-    
     config_data = [
         ["RaceName", race_name],
         ["SectionCount", str(section_count)],
@@ -400,10 +368,8 @@ def initialize_race(race_name, section_count, teams_dict, main_team_id):
     ]
     for tid, tname in teams_dict.items():
         config_data.append([f"TeamName_{tid}", tname])
-    
     ws_conf.append_rows(config_data)
     st.cache_data.clear()
-    
     new_config = {}
     for item in config_data: new_config[item[0]] = item[1]
     st.session_state["race_config"] = new_config
@@ -463,7 +429,6 @@ if st.session_state["race_config"] is None:
     if loaded_conf: st.session_state["race_config"] = loaded_conf
 
 config = st.session_state["race_config"]
-# 修正: デフォルトを観戦モードに
 if "app_mode" not in st.session_state: st.session_state["app_mode"] = "📣 観戦モード"
 
 if (config is None or "RaceName" not in config) and st.session_state["app_mode"] not in ["📂 過去のレース", "⚙️ 管理者モード"]:
@@ -697,7 +662,6 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                     st.markdown(f"<div style='text-align: center; background-color: #333; padding: 8px; border-radius: 5px; margin-bottom: 10px; margin-top: 10px;'>⏱️ 直近ラップ(P): <span style='font-weight:bold; color:#4bd6ff; font-family: monospace; font-size: 1.1em;'>{last_lap}</span></div>", unsafe_allow_html=True)
             except: pass
 
-            # 前後差
             loc_df = df[(df['Section'] == last['Section']) & (df['Location'] == last['Location'])].copy()
             if 'SplitSeconds' in loc_df.columns:
                 loc_df = loc_df.sort_values("SplitSeconds").reset_index(drop=True)
@@ -723,7 +687,27 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
 
             st.divider()
             st.write("📝 通過履歴")
-            st.dataframe(t_df[['Section', 'Location', 'Split', 'KM-Lap']].iloc[::-1], use_container_width=True, hide_index=True)
+            
+            # --- 履歴テーブルの表示 (v2.0.7改良版) ---
+            history_df = t_df[['Section', 'Location', 'Rank', 'Split', 'KM-Lap', 'PrevDiff']].iloc[::-1].copy()
+            
+            # 前との差をフォーマット
+            def fmt_diff_val(x):
+                if pd.isna(x): return "-"
+                return f"+{fmt_time(x)}"
+            
+            history_df['前との差'] = history_df['PrevDiff'].apply(fmt_diff_val)
+            
+            history_df = history_df.rename(columns={
+                'Section': '区間', 'Location': '地点', 
+                'Rank': '通過順', 'Split': 'タイム', 'KM-Lap': 'P-Lap'
+            })
+            
+            st.dataframe(
+                history_df[['区間', '地点', '通過順', 'タイム', 'P-Lap', '前との差']], 
+                use_container_width=True, 
+                hide_index=True
+            )
 
     # 📈 分析モード
     elif current_mode == "📈 分析モード":
