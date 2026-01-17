@@ -576,25 +576,33 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 if len(all_vals) > 1: ws.delete_rows(len(all_vals)); st.cache_data.clear(); st.toast("削除しました"); st.rerun()
             except Exception as e: st.error(f"Undoエラー: {e}")
 
-    # 📣 観戦モード
+    # -------------------------------------
+    # 📣 観戦モード (v2.0.6 前後差復活版)
+    # -------------------------------------
     elif current_mode == "📣 観戦モード":
-        # 修正: 更新間隔延長
         st_autorefresh(interval=AUTOREFRESH_INTERVAL, key="watch_refresh")
         
         if "watch_tid" not in st.session_state: st.session_state["watch_tid"] = main_team_id
+        
+        # チーム選択
         team_options = {tid: f"No.{tid} {teams_info.get(tid, '')}" for tid in team_ids_ordered}
         curr_idx = 0
-        if st.session_state["watch_tid"] in team_ids_ordered: curr_idx = team_ids_ordered.index(st.session_state["watch_tid"])
+        if st.session_state["watch_tid"] in team_ids_ordered:
+            curr_idx = team_ids_ordered.index(st.session_state["watch_tid"])
+            
         selected_tid = st.selectbox("チーム選択", options=team_ids_ordered, format_func=lambda x: team_options[x], index=curr_idx)
         st.session_state["watch_tid"] = selected_tid
 
         t_df = df[df['TeamID'] == selected_tid]
-        if t_df.empty: st.info("まだ記録がありません")
+        
+        if t_df.empty:
+            st.info("まだ記録がありません")
         else:
             last = t_df.iloc[-1]
-            last_time = last['dt'] # 計算済みオブジェクトを使用
+            last_time = last['dt'] # 計算済みオブジェクト
             now = datetime.now(JST)
             
+            # JSタイマー用計算
             try: start_time = df[df['Location'] == 'Start'].iloc[0]['dt']
             except: start_time = now
             
@@ -603,17 +611,19 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 prev_relay = t_df[(t_df['Section'] == f"{int(last['Section'].replace('区',''))-1}区") & (t_df['Location'] == 'Relay')]
                 if not prev_relay.empty: sec_start_time = prev_relay.iloc[0]['dt']
             
-            elapsed_km, elapsed_sec, elapsed_split = (now - last_time).total_seconds(), (now - sec_start_time).total_seconds(), (now - start_time).total_seconds()
+            elapsed_km = (now - last_time).total_seconds()
+            elapsed_sec = (now - sec_start_time).total_seconds()
+            elapsed_split = (now - start_time).total_seconds()
             
+            # パネル表示用テキスト
             loc_raw = last['Location']
             display_loc = f"{last['Section']} {loc_raw}"
-            if "P" in loc_raw: # P1, P2...
-                 display_loc = f"🏃‍♂️ 現在地: {last['Section']} {loc_raw} 〜"
+            if "P" in loc_raw: display_loc = f"🏃‍♂️ 現在地: {last['Section']} {loc_raw} 〜"
             elif loc_raw == "Start": display_loc = "🏃‍♂️ 現在地: スタート地点"
             elif loc_raw == "Relay": display_loc = f"🏃‍♂️ 現在地: {last['Section']} 中継所"
             elif loc_raw == "Finish": display_loc = "🏃‍♂️ 現在地: フィニッシュ"
 
-            # 修正: Rank表示を削除し、通過順(Pass Order)として小さく表示
+            # 順位・現在地パネル
             st.markdown(f"""
                 <style>
                 .info-panel {{ background-color: #262730; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #4f4f4f; text-align: center; width: 100%; box-sizing: border-box; }}
@@ -626,6 +636,7 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 </div>
             """, unsafe_allow_html=True)
 
+            # フィニッシュ or タイマー
             if last['Location'] == 'Finish':
                 st.markdown(f"""
                     <div style="border: 4px solid #FFD700; border-radius: 15px; background: linear-gradient(135deg, #262730, #444); padding: 30px; text-align: center; color: white; margin-bottom: 20px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);">
@@ -635,7 +646,8 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                         <div style="font-size: 24px; font-weight: bold; margin-top: 20px;">TIME: {last['Split']}</div>
                     </div>
                 """, unsafe_allow_html=True)
-            else: show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
+            else:
+                show_js_timer(elapsed_km, elapsed_sec, elapsed_split)
 
             # 直近ラップ
             try:
@@ -643,6 +655,45 @@ elif current_mode in ["⏱️ 記録点モード", "🎽 中継点モード", "�
                 if last_lap and last_lap != "nan":
                     st.markdown(f"<div style='text-align: center; background-color: #333; padding: 8px; border-radius: 5px; margin-bottom: 10px; margin-top: 10px;'>⏱️ 直近ラップ(P): <span style='font-weight:bold; color:#4bd6ff; font-family: monospace; font-size: 1.1em;'>{last_lap}</span></div>", unsafe_allow_html=True)
             except: pass
+
+            # --- 復活: 前後チーム差表示 ---
+            # 同じ地点のデータを抽出
+            loc_df = df[(df['Section'] == last['Section']) & (df['Location'] == last['Location'])].copy()
+            
+            # SplitSeconds(自動計算されたタイム)でソート
+            if 'SplitSeconds' in loc_df.columns:
+                loc_df = loc_df.sort_values("SplitSeconds").reset_index(drop=True)
+                
+                # 自分のインデックスを探す
+                my_indices = loc_df.index[loc_df['TeamID'].astype(str) == str(selected_tid)].tolist()
+                
+                if my_indices:
+                    my_idx = my_indices[0]
+                    my_split = loc_df.iloc[my_idx]['SplitSeconds']
+                    
+                    c_prev, c_next = st.columns(2)
+                    
+                    # 前のチーム
+                    with c_prev:
+                        if my_idx > 0:
+                            prev_row = loc_df.iloc[my_idx - 1]
+                            diff = my_split - prev_row['SplitSeconds']
+                            prev_tid = str(prev_row['TeamID'])
+                            prev_name = teams_info.get(prev_tid, prev_row['TeamName'])
+                            st.info(f"⬆️ 前: **{prev_name}**\n\n+{fmt_time(diff)}")
+                        else:
+                            st.success("👑 現在トップ！")
+
+                    # 後ろのチーム
+                    with c_next:
+                        if my_idx < len(loc_df) - 1:
+                            next_row = loc_df.iloc[my_idx + 1]
+                            diff = next_row['SplitSeconds'] - my_split
+                            next_tid = str(next_row['TeamID'])
+                            next_name = teams_info.get(next_tid, next_row['TeamName'])
+                            st.warning(f"⬇️ 後ろ: **{next_name}**\n\n-{fmt_time(diff)}")
+                        else:
+                            st.write("（後ろはいません）")
 
             st.divider()
             st.write("📝 通過履歴")
