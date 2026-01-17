@@ -392,7 +392,7 @@ if st.session_state["race_config"] is None:
     if loaded_conf: st.session_state["race_config"] = loaded_conf
 
 config = st.session_state["race_config"]
-if "app_mode" not in st.session_state: st.session_state["app_mode"] = "🏁 レース作成"
+if "app_mode" not in st.session_state: st.session_state["app_mode"] = "📣 観戦モード"
 
 # Config未ロード時のアクセス制限緩和
 if (config is None or "RaceName" not in config) and st.session_state["app_mode"] not in ["📂 過去のレース", "⚙️ 管理者モード"]:
