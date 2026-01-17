@@ -183,7 +183,7 @@ def fetch_config_from_sheet(conn, sheet_name=WORKSHEET_CONFIG):
         return config
     except: return None
 
-# --- UI描画ロジック ---
+# --- UI描画ロジック (25色パレット版) ---
 def render_analysis_dashboard(df, teams_info):
     analysis_data = []
     points_order = df[['Section', 'Location']].drop_duplicates()
@@ -195,7 +195,6 @@ def render_analysis_dashboard(df, teams_info):
         p_df = df[(df['Section'] == sec) & (df['Location'] == loc)].copy()
         if p_df.empty: continue
         
-        # load_dataで計算済みだが、念のため安全に取得
         if 'SplitSeconds' not in p_df.columns:
              p_df['SplitSeconds'] = p_df['Split'].apply(str_to_sec)
         
@@ -219,6 +218,35 @@ def render_analysis_dashboard(df, teams_info):
         st.warning("データ不足のため表示できません")
         return
 
+    # --- 色の設定ロジック (25色対応) ---
+    config = st.session_state.get("race_config", {})
+    main_tid = config.get("MainTeamID", "1")
+    main_team_name = teams_info.get(str(main_tid), str(main_tid))
+
+    # 25色のパレット (メインチーム用の赤を先頭に、他は見分けやすい色を配置)
+    palette = [
+        '#FF4B4B', # 1. Main Red (赤)
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd', '#8c564b', 
+        '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#aec7e8', 
+        '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5', '#c49c94', 
+        '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5', '#393b79', 
+        '#637939', '#8c6d31', '#843c39', '#7b4173'
+    ]
+    
+    domain = ana_df['Team'].unique().tolist()
+    range_colors = []
+    
+    # パレット割り当て用インデックス (赤以外を使うため1からスタート)
+    color_idx = 1
+    
+    for team in domain:
+        if team == main_team_name:
+            range_colors.append('#FF4B4B') # メインチームは必ず赤
+        else:
+            # パレットの範囲内で循環させる
+            range_colors.append(palette[color_idx % len(palette)])
+            color_idx += 1
+
     tab1, tab2, tab3 = st.tabs(["📈 レース推移", "⚔️ チーム比較", "📍 地点別詳細"])
     
     with tab1:
@@ -231,23 +259,28 @@ def render_analysis_dashboard(df, teams_info):
                 x=alt.X('PointLabel', sort=None, title='地点'),
                 y=alt.Y('Rank', scale=alt.Scale(domain=[1, max_rank], zero=False, nice=False), 
                         axis=alt.Axis(values=rank_ticks, format='d'), title='順位').scale(reverse=True),
-                color='Team', tooltip=['Team', 'PointLabel', 'Rank', 'Split']
+                color=alt.Color('Team', scale=alt.Scale(domain=domain, range=range_colors)), # 色適用
+                tooltip=['Team', 'PointLabel', 'Rank', 'Split']
             ).properties(height=500).interactive(bind_y=False)
             st.altair_chart(chart, use_container_width=True)
         else:
             chart = alt.Chart(ana_df).mark_line(point=True).encode(
                 x=alt.X('PointLabel', sort=None, title='地点'),
                 y=alt.Y('GapSeconds', scale=alt.Scale(reverse=True, nice=True), title='トップ差'),
-                color='Team', tooltip=['Team', 'PointLabel', 'Rank', 'GapSeconds']
+                color=alt.Color('Team', scale=alt.Scale(domain=domain, range=range_colors)), # 色適用
+                tooltip=['Team', 'PointLabel', 'Rank', 'GapSeconds']
             ).properties(height=500).interactive(bind_y=False)
             st.altair_chart(chart, use_container_width=True)
 
     with tab2:
         cols = st.columns(2)
         tl = list(teams_info.values())
+        try: main_idx = tl.index(main_team_name)
+        except: main_idx = 0
+        
         if tl:
-            with cols[0]: ta = st.selectbox("チームA", tl, 0, key=f"ta_{len(df)}")
-            with cols[1]: tb = st.selectbox("チームB", tl, 1 if len(tl)>1 else 0, key=f"tb_{len(df)}")
+            with cols[0]: ta = st.selectbox("チームA", tl, index=main_idx, key=f"ta_{len(df)}")
+            with cols[1]: tb = st.selectbox("チームB", tl, index=(main_idx + 1) % len(tl) if len(tl) > 1 else 0, key=f"tb_{len(df)}")
             
             if ta and tb:
                 tid_a = [k for k, v in teams_info.items() if v == ta][0]
@@ -268,7 +301,6 @@ def render_analysis_dashboard(df, teams_info):
         tpt = st.selectbox("地点", popts, key=f"tpt_{len(df)}")
         if tpt:
             pdf = ana_df[ana_df['PointLabel']==tpt].copy()
-            # 区間順位などはload_dataで計算済みだが、分析用にここでも再計算可能
             ddf = pdf[['Rank','Team','Split','GapSeconds','LapStr']].sort_values('Rank')
             ddf.columns = ["通過順","チーム","タイム","トップ差","区間タイム"]
             ddf['トップ差'] = ddf['トップ差'].apply(lambda x: f"+{fmt_time(x)}" if x>0 else "-")
